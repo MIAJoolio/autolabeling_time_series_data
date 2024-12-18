@@ -1,0 +1,13 @@
+pandas
+numpy
+scipy
+scikit-learn
+sktime
+tsfresh
+matplotlib
+seaborn
+jupyter
+aeon
+kaggle
+kagglehub
+openpyxl
