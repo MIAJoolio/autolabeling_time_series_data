@@ -1,241 +1,403 @@
 import dash
-from dash import dcc, html, Input, Output, State
+from dash import dcc, html, Input, Output, State, dash_table
 import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
 from io import StringIO
 import base64
-from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 import plotly.colors
-
-# Импорт функций из feature_extraction
 from feature_extraction import (
     paa_features, tsa_detrend, tsa_acf, statistical_features,
     signal_peaks_features, stft_features, dft_components,
-    dwt_features, mean_dwt_features, dwt_features_with_info
+    dwt_features, dft_signal, dft_approximation
 )
+from density_clustering import apply_dbscan, apply_birch
+from hierarchical_clustering import apply_agglomerative
+from partitioning_clustering import apply_kmeans, apply_ts_kmeans
 
 # Инициализация Dash-приложения
-app = dash.Dash(__name__)
+app = dash.Dash(__name__, prevent_initial_callbacks='initial_duplicate')
 
 # Макет приложения
 app.layout = html.Div([
-    # 1. Панель загрузки файла
-    html.Div([
-        dcc.Upload(
-            id='upload-data',
-            children=html.Div(['Перетащите или ', html.A('выберите файл')]),
-            style={
-                'width': '50%',
-                'height': '60px',
-                'lineHeight': '60px',
-                'borderWidth': '1px',
-                'borderStyle': 'dashed',
-                'borderRadius': '5px',
-                'textAlign': 'center',
-                'margin': '10px'
-            },
-            multiple=False
-        ),
-    ]),
+    # Заголовок для загрузки данных
+    html.Label("Загрузка данных"),
+    dcc.Upload(
+        id='upload-data',
+        children=html.Div(['Перетащите или ', html.A('выберите файл')]),
+        style={
+            'width': '50%',
+            'height': '60px',
+            'lineHeight': '60px',
+            'borderWidth': '1px',
+            'borderStyle': 'dashed',
+            'borderRadius': '5px',
+            'textAlign': 'center',
+            'margin': '10px'
+        },
+        multiple=False
+    ),
 
-    # 2. Поле выбора размера окна и кнопки
-    html.Div([
-        dcc.Input(id='window-size', type='number', value=4, min=1, step=1, placeholder="Размер окна"),
-        html.Button('Вернуться к исходному ряду', id='reset-button'),
-        html.Button('Показать фрагменты', id='show-fragments-button'),
-    ], style={'margin': '10px'}),
+    # Заголовок для длины сегмента
+    html.Label("Длина сегмента"),
+    dcc.Input(
+        id='window-size',
+        type='number',
+        value=4,
+        min=1,
+        step=1,
+        style={'margin': '10px'}
+    ),
 
-    # 3. Выбор метода предобработки и кнопка "Применить метод"
-    html.Div([
-        dcc.Dropdown(
-            id='method-selector',
-            options=[
-                {'label': 'Raw', 'value': 'raw'},
-                {'label': 'PAA', 'value': 'paa_features'},
-                {'label': 'Detrend', 'value': 'tsa_detrend'},
-                {'label': 'ACF', 'value': 'tsa_acf'},
-                {'label': 'Statistical Features', 'value': 'statistical_features'},
-                {'label': 'Signal Peaks Features', 'value': 'signal_peaks_features'},
-                {'label': 'STFT Features', 'value': 'stft_features'},
-                {'label': 'DFT Components', 'value': 'dft_components'},
-                {'label': 'DWT Features', 'value': 'dwt_features'},
-                {'label': 'Mean DWT Features', 'value': 'mean_dwt_features'},
-                {'label': 'DWT Features with Info', 'value': 'dwt_features_with_info'}
-            ],
-            value='raw',  # По умолчанию выбран метод Raw
-            placeholder="Выберите метод"
-        ),
-        html.Button('Применить метод', id='apply-method-button'),
-    ], style={'margin': '10px'}),
+    # Галочки для выбора типа кластеризации
+    dcc.Checklist(
+        id='clustering-type-checkbox',
+        options=[
+            {'label': 'Свободный режим', 'value': 'free'},
+            {'label': 'Кластеры различимы', 'value': 'distinct'},
+            {'label': 'Скученные кластеры', 'value': 'dense'},
+            {'label': 'Ложные кластеры', 'value': 'false'}
+        ],
+        value=[],
+        style={'margin': '10px'}
+    ),
 
-    # 4. KMeans с выбором числа кластеров и кнопка "Кластеризовать"
-    html.Div([
-        dcc.Input(id='n-clusters', type='number', value=3, min=1, step=1, placeholder="Число кластеров"),
-        html.Button('Кластеризовать', id='cluster-button'),
-    ], style={'margin': '10px'}),
+    # Скрытые элементы для типа предобработки
+    html.Div(
+        id='preprocessing-div',
+        children=[
+            html.Label("Тип предобработки"),
+            dcc.Dropdown(
+                id='method-selector',
+                options=[
+                    {'label': 'Raw', 'value': 'raw'},
+                    {'label': 'PAA', 'value': 'paa_features'},
+                    {'label': 'Detrend', 'value': 'tsa_detrend'},
+                    {'label': 'ACF', 'value': 'tsa_acf'},
+                    {'label': 'Statistical Features', 'value': 'statistical_features'},
+                    {'label': 'Signal Peaks Features', 'value': 'signal_peaks_features'},
+                    {'label': 'STFT Features', 'value': 'stft_features'},
+                    {'label': 'DFT Components', 'value': 'dft_components'},
+                    {'label': 'DWT Features', 'value': 'dwt_features'},
+                    {'label': 'DFT Signal', 'value': 'dft_signal'},
+                    {'label': 'DFT Approximation', 'value': 'dft_approximation'}
+                ],
+                value='raw',
+                placeholder="Выберите метод",
+                style={'margin': '10px'}
+            )
+        ],
+        style={'display': 'none'}  # Скрываем по умолчанию
+    ),
 
-    # 5. Кнопка для сброса индексов
-    html.Div([
-        html.Button('Сбросить индексы', id='reset-indices-button'),
-    ], style={'margin': '10px'}),
+    # Скрытые элементы для алгоритма кластеризации
+    html.Div(
+        id='clustering-div',
+        children=[
+            html.Label("Алгоритм кластеризации"),
+            dcc.Dropdown(
+                id='clustering-method-selector',
+                options=[
+                    {'label': 'DBSCAN', 'value': 'dbscan'},
+                    {'label': 'BIRCH', 'value': 'birch'},
+                    {'label': 'Agglomerative', 'value': 'agglomerative'},
+                    {'label': 'KMeans', 'value': 'kmeans'},
+                    {'label': 'Time Series KMeans', 'value': 'ts_kmeans'}
+                ],
+                value='dbscan',
+                placeholder="Выберите метод кластеризации",
+                style={'margin': '10px'}
+            )
+        ],
+        style={'display': 'none'}  # Скрываем по умолчанию
+    ),
+
+    # Ползунок для параметра кластеризации
+    html.Label("Расстояние между кластерами (cluster_distance)"),
+    dcc.Slider(
+        id='cluster-distance-slider',
+        min=0,
+        max=1,
+        step=0.1,
+        value=0.5,
+        marks={i: str(i) for i in np.arange(0, 1.1, 0.1)},
+        tooltip={"placement": "bottom", "always_visible": True},
+        className="slider-style"  # Используем className для стилизации
+    ),
+
+    # Новый ползунок для выбора значения в диапазоне данных
+    html.Label("Выберите значение в диапазоне данных"),
+    dcc.Slider(
+        id='data-range-slider',
+        min=0,
+        max=1,  # Временно, будет обновлено после загрузки данных
+        step=0.1,
+        value=0.5,
+        marks={},
+        tooltip={"placement": "bottom", "always_visible": True},
+        className="slider-style"
+    ),
+
+    # Таблица для отображения результатов silhouette score
+    dash_table.DataTable(
+        id='silhouette-table',
+        columns=[
+            {'name': 'distance_threshold', 'id': 'distance_threshold'},
+            {'name': 'Silhouette Score', 'id': 'silhouette_score'}
+        ],
+        data=[],
+        style_table={'margin': '10px'},
+        style_cell={'textAlign': 'left'},
+        style_header={
+            'backgroundColor': 'lightgrey',
+            'fontWeight': 'bold'
+        },
+        style_data_conditional=[
+            {
+                'if': {'row_index': 'odd'},
+                'backgroundColor': 'rgb(248, 248, 248)'
+            }
+        ]
+    ),
+
+    # Кнопки
+    html.Button('Показать сегменты', id='show-segments-button', style={'margin': '10px'}),
+    html.Button('Вернуться к исходному ряду', id='reset-button', style={'margin': '10px'}),
+    html.Button('Применить метод', id='apply-method-button', style={'margin': '10px'}),
+    html.Button('Кластеризовать', id='cluster-button', style={'margin': '10px'}),
 
     # График
     dcc.Graph(id='graph'),
 
-    # Хранение данных
+    # Хранилища данных
     dcc.Store(id='stored-data', data={'x': np.arange(16).tolist(), 'y': np.random.rand(16).tolist()}),
-    dcc.Store(id='stored-fragments', data=[]),  # Исходные фрагменты
-    dcc.Store(id='transformed-fragments', data=[]),  # Преобразованные фрагменты
-    dcc.Store(id='cluster-labels', data=[]),  # Метки кластеров
-    dcc.Store(id='reset-indices-flag', data=False),  # Флаг для сброса индексов
+    dcc.Store(id='stored-segments', data=[]),
+    dcc.Store(id='transformed-segments', data=[]),
+    dcc.Store(id='cluster-labels', data=[])
 ])
 
-# Callback для загрузки данных
+# Callback для загрузки данных и обновления ползунка
 @app.callback(
     Output('stored-data', 'data'),
+    Output('data-range-slider', 'min'),
+    Output('data-range-slider', 'max'),
+    Output('data-range-slider', 'value'),
+    Output('data-range-slider', 'marks'),
     Input('upload-data', 'contents'),
     State('upload-data', 'filename')
 )
 def load_data(contents, filename):
     if contents is None:
-        return {'x': np.arange(16).tolist(), 'y': np.random.rand(16).tolist()}
-    
+        default_data = {'x': np.arange(16).tolist(), 'y': np.random.rand(16).tolist()}
+        return default_data, 0, 1, 0.5, {}
+
     content_type, content_string = contents.split(',')
     decoded = StringIO(base64.b64decode(content_string).decode('utf-8', errors='ignore'))
-    
+
     try:
         df = pd.read_csv(decoded)
         if len(df) > 10000:
             df = df.iloc[:10000]
         if 'x' in df.columns and 'y' in df.columns:
-            return {'x': df['x'].tolist(), 'y': df['y'].tolist()}
+            data = {'x': df['x'].tolist(), 'y': df['y'].tolist()}
         else:
-            return {'x': df.iloc[:, 0].tolist(), 'y': df.iloc[:, 1].tolist()}
+            data = {'x': df.iloc[:, 0].tolist(), 'y': df.iloc[:, 1].tolist()}
+
+        # Определяем минимальное и максимальное значение в данных
+        y_values = data['y']
+        min_value = min(y_values)
+        max_value = max(y_values)
+
+        # Создаем метки для ползунка
+        marks = {i: f"{i:.1f}" for i in np.linspace(min_value, max_value, 5)}
+
+        return data, min_value, max_value, (min_value + max_value) / 2, marks
+
     except Exception as e:
         print(f"Ошибка при загрузке файла: {e}")
-        return {'x': np.arange(16).tolist(), 'y': np.random.rand(16).tolist()}
+        default_data = {'x': np.arange(16).tolist(), 'y': np.random.rand(16).tolist()}
+        return default_data, 0, 1, 0.5, {}
 
-# Callback для создания фрагментов
+# Callback для создания сегментов
 @app.callback(
-    Output('stored-fragments', 'data'),
-    Input('show-fragments-button', 'n_clicks'),
+    Output('stored-segments', 'data'),
+    Input('show-segments-button', 'n_clicks'),
     State('stored-data', 'data'),
     State('window-size', 'value'),
     prevent_initial_call=True
 )
-def create_fragments(n_clicks, data, window_size):
+def create_segments(n_clicks, data, window_size):
     if n_clicks is None:
         return []
     
     y = np.array(data['y'])
-    fragments = [y[i:i + window_size].tolist() for i in range(0, len(y), window_size)]
-    return fragments
+    segments = [y[i:i + window_size].tolist() for i in range(0, len(y), window_size) if len(y[i:i + window_size]) == window_size]
+    return segments
 
-# Callback для применения метода преобразования
+# Callback для отображения/скрытия элементов интерфейса
 @app.callback(
-    Output('transformed-fragments', 'data'),
+    Output('preprocessing-div', 'style'),
+    Output('clustering-div', 'style'),
+    Input('clustering-type-checkbox', 'value')
+)
+def toggle_interface(clustering_type):
+    if 'free' in clustering_type:  # Если выбран свободный режим
+        return {'display': 'block'}, {'display': 'block'}
+    else:  # Если свободный режим не выбран
+        return {'display': 'none'}, {'display': 'none'}
+
+# Callback для применения предобработки к сегментам
+@app.callback(
+    Output('transformed-segments', 'data'),
     Input('apply-method-button', 'n_clicks'),
-    State('stored-fragments', 'data'),
-    State('window-size', 'value'),
+    State('stored-segments', 'data'),
     State('method-selector', 'value'),
     prevent_initial_call=True
 )
-def apply_method(n_clicks, fragments, window_size, method):
-    if n_clicks is None:
+def apply_preprocessing(n_clicks, segments, method):
+    if n_clicks is None or not segments:
         return []
     
-    transformed_fragments = []
-    for fragment in fragments:
+    transformed_segments = []
+    for segment in segments:
         if method == 'raw':
-            result = fragment
+            transformed_segments.append(segment)
         elif method == 'paa_features':
-            result = paa_features(np.array(fragment), n_segments=window_size)
+            transformed_segments.append(paa_features(np.array(segment)))
         elif method == 'tsa_detrend':
-            result = tsa_detrend(np.array(fragment))
+            transformed_segments.append(tsa_detrend(np.array(segment)))
         elif method == 'tsa_acf':
-            result = tsa_acf(np.array(fragment), n_lags=window_size)
+            transformed_segments.append(tsa_acf(np.array(segment)))
         elif method == 'statistical_features':
-            result = statistical_features(np.array(fragment))
+            transformed_segments.append(statistical_features(np.array(segment)))
         elif method == 'signal_peaks_features':
-            result = signal_peaks_features(np.array(fragment))
+            transformed_segments.append(signal_peaks_features(np.array(segment)))
         elif method == 'stft_features':
-            result = stft_features(np.array(fragment))
+            transformed_segments.append(stft_features(np.array(segment)))
         elif method == 'dft_components':
-            result = dft_components(np.array(fragment), n_freqs=window_size)
+            transformed_segments.append(dft_components(np.array(segment)))
         elif method == 'dwt_features':
-            result = dwt_features(np.array(fragment), level=window_size)
-        elif method == 'mean_dwt_features':
-            result = mean_dwt_features(np.array(fragment), level=window_size)
-        elif method == 'dwt_features_with_info':
-            result = dwt_features_with_info(np.array(fragment), level=window_size)
-        else:
-            result = fragment
-        
-        transformed_fragments.append(result)
+            transformed_segments.append(dwt_features(np.array(segment)))
+        elif method == 'dft_signal':
+            transformed_segments.append(dft_signal(np.array(segment)))
+        elif method == 'dft_approximation':
+            transformed_segments.append(dft_approximation(np.array(segment)))
     
-    return transformed_fragments
+    return transformed_segments
 
-# Callback для сброса индексов
+# Callback для обновления параметров кластеризации и таблицы silhouette score
 @app.callback(
-    Output('reset-indices-flag', 'data'),
-    Input('reset-indices-button', 'n_clicks'),
-    State('reset-indices-flag', 'data'),
+    Output('cluster-distance-slider', 'min'),
+    Output('cluster-distance-slider', 'max'),
+    Output('cluster-distance-slider', 'value'),
+    Output('silhouette-table', 'data'),
+    Input('stored-data', 'data'),
+    Input('clustering-type-checkbox', 'value'),
+    State('stored-segments', 'data'),
+    State('transformed-segments', 'data'),
+    State('clustering-method-selector', 'value'),
     prevent_initial_call=True
 )
-def toggle_reset_indices(n_clicks, reset_flag):
-    if n_clicks is None:
-        return reset_flag
-    return not reset_flag  # Инвертируем флаг
+def update_clustering_params(data, clustering_type, segments, transformed_segments, clustering_method):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update, dash.no_update, []
+    
+    triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    if not data or 'free' not in clustering_type:
+        return dash.no_update, dash.no_update, dash.no_update, []
+    
+    y = np.array(data['y'])
+    max_value = np.max(y)  # Максимальное значение в данных
+    
+    if triggered_id == 'stored-data':
+        return 1, max_value, max_value / 2, []
+    
+    data_to_cluster = transformed_segments if transformed_segments else segments
+    if not data_to_cluster:
+        return 1, max_value, max_value / 2, []
+    
+    data_array = np.array(data_to_cluster)
+    results = []
+    best_score = -1
+    best_threshold = max_value / 2  # Начальное значение ползунка
+
+    for threshold in np.arange(1, max_value + 1, (max_value - 1) / 10):  # 10 шагов
+        if clustering_method == 'dbscan':
+            labels, _ = apply_dbscan(data_array, eps=threshold, min_samples=5)
+        elif clustering_method == 'birch':
+            labels, _ = apply_birch(data_array, threshold=threshold, n_clusters=None)
+        elif clustering_method == 'agglomerative':
+            labels, _ = apply_agglomerative(data_array, distance_threshold=threshold, n_clusters=None)
+        elif clustering_method == 'kmeans':
+            labels, _ = apply_kmeans(data_array, n_clusters=int(threshold))
+        elif clustering_method == 'ts_kmeans':
+            labels, _ = apply_ts_kmeans(data_array, n_clusters=int(threshold))
+        else:
+            labels = []
+        
+        if len(set(labels)) > 1:  # Silhouette score требует как минимум 2 кластера
+            score = silhouette_score(data_array, labels)
+            results.append({'distance_threshold': round(threshold, 1), 'silhouette_score': round(score, 3)})
+            if score > best_score:
+                best_score = score
+                best_threshold = threshold
+    
+    return 1, max_value, best_threshold, results
 
 # Callback для кластеризации
 @app.callback(
     Output('cluster-labels', 'data'),
     Input('cluster-button', 'n_clicks'),
-    State('stored-fragments', 'data'),
-    State('transformed-fragments', 'data'),
-    State('n-clusters', 'value'),
+    State('stored-segments', 'data'),
+    State('transformed-segments', 'data'),
+    State('cluster-distance-slider', 'value'),
+    State('clustering-method-selector', 'value'),
     prevent_initial_call=True
 )
-def apply_clustering(n_clicks, fragments, transformed_fragments, n_clusters):
+def apply_clustering(n_clicks, segments, transformed_segments, cluster_distance, clustering_method):
     if n_clicks is None:
         return []
     
-    # Используем преобразованные данные, если они есть, иначе исходные фрагменты
-    data_to_cluster = transformed_fragments if transformed_fragments else fragments
-    
-    if not data_to_cluster or n_clusters > len(data_to_cluster):
-        return []  # Если данных нет или кластеров больше, чем фрагментов
-    
-    # Проверяем, что все фрагменты имеют одинаковую длину
-    lengths = [len(fragment) for fragment in data_to_cluster]
-    if len(set(lengths)) != 1:
-        print("Ошибка: фрагменты имеют разную длину. Кластеризация невозможна.")
+    data_to_cluster = transformed_segments if transformed_segments else segments
+    if not data_to_cluster:
         return []
     
     data_array = np.array(data_to_cluster)
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-    labels = kmeans.fit_predict(data_array)
+    
+    if clustering_method == 'dbscan':
+        labels, _ = apply_dbscan(data_array, eps=cluster_distance, min_samples=5)
+    elif clustering_method == 'birch':
+        labels, _ = apply_birch(data_array, threshold=cluster_distance, n_clusters=None)
+    elif clustering_method == 'agglomerative':
+        labels, _ = apply_agglomerative(data_array, distance_threshold=cluster_distance, n_clusters=None)
+    elif clustering_method == 'kmeans':
+        labels, _ = apply_kmeans(data_array, n_clusters=int(cluster_distance))
+    elif clustering_method == 'ts_kmeans':
+        labels, _ = apply_ts_kmeans(data_array, n_clusters=int(cluster_distance))
+    else:
+        labels = []
+    
     return labels.tolist()
 
-# Callback для обновления графика
+# Общий callback для обновления графика
 @app.callback(
     Output('graph', 'figure'),
-    Input('show-fragments-button', 'n_clicks'),
+    Input('show-segments-button', 'n_clicks'),
     Input('reset-button', 'n_clicks'),
     Input('apply-method-button', 'n_clicks'),
     Input('cluster-button', 'n_clicks'),
-    Input('reset-indices-button', 'n_clicks'),
     State('stored-data', 'data'),
-    State('stored-fragments', 'data'),
-    State('transformed-fragments', 'data'),
+    State('stored-segments', 'data'),
+    State('transformed-segments', 'data'),
+    State('cluster-labels', 'data'),
     State('window-size', 'value'),
     State('method-selector', 'value'),
-    State('cluster-labels', 'data'),
-    State('reset-indices-flag', 'data'),
     prevent_initial_call=True
 )
-def update_graph(show_clicks, reset_clicks, apply_method_clicks, cluster_clicks, reset_indices_clicks, data, fragments, transformed_fragments, window_size, method, cluster_labels, reset_indices_flag):
+def update_graph(show_clicks, reset_clicks, apply_method_clicks, cluster_clicks, data, segments, transformed_segments, cluster_labels, window_size, method):
     ctx = dash.callback_context
     if not ctx.triggered:
         return go.Figure()
@@ -247,21 +409,8 @@ def update_graph(show_clicks, reset_clicks, apply_method_clicks, cluster_clicks,
     if button_id == 'reset-button':
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=x, y=y, mode='lines+markers', name='Исходный график'))
-        return fig
-    
-    elif button_id == 'show-fragments-button':
-        fig = go.Figure()
-        for i, fragment in enumerate(fragments):
-            x_frag = np.arange(len(fragment)) + i * window_size
-            fig.add_trace(go.Scatter(
-                x=x_frag,
-                y=fragment,
-                mode='lines+markers',
-                name=f'Фрагмент {i + 1}'
-            ))
         
-        # Добавляем вертикальные линии и подписи
-        for i in range(len(fragments)):
+        for i in range(len(segments)):
             x_line = i * window_size
             fig.add_trace(go.Scatter(
                 x=[x_line, x_line],
@@ -270,18 +419,40 @@ def update_graph(show_clicks, reset_clicks, apply_method_clicks, cluster_clicks,
                 line=dict(color='gray', dash='dash'),
                 showlegend=False
             ))
-            x_text = x_line + window_size / 2
+        
+        for i in range(len(segments)):
+            x_text = i * window_size + window_size / 2
+            y_text = max(y)
             fig.add_trace(go.Scatter(
                 x=[x_text],
-                y=[max(y)],
+                y=[y_text],
                 mode='text',
-                text=[f'Фрагмент {i + 1}'],
+                text=[f'Сегмент {i + 1}'],
                 textposition='top center',
                 showlegend=False
             ))
         
         fig.update_layout(
-            title="Фрагменты данных",
+            title="Исходный график с границами сегментов",
+            xaxis_title="Индекс",
+            yaxis_title="Значение",
+            showlegend=True
+        )
+        return fig
+    
+    elif button_id == 'show-segments-button':
+        fig = go.Figure()
+        for i, segment in enumerate(segments):
+            x_seg = np.arange(len(segment)) + i * window_size
+            fig.add_trace(go.Scatter(
+                x=x_seg,
+                y=segment,
+                mode='lines+markers',
+                name=f'Сегмент {i + 1}'
+            ))
+        
+        fig.update_layout(
+            title="Сегменты данных",
             xaxis_title="Индекс",
             yaxis_title="Значение"
         )
@@ -289,43 +460,17 @@ def update_graph(show_clicks, reset_clicks, apply_method_clicks, cluster_clicks,
     
     elif button_id == 'apply-method-button':
         fig = go.Figure()
-        for i, fragment in enumerate(transformed_fragments):
-            if reset_indices_flag:
-                x_frag = np.arange(len(fragment))  # Сбрасываем индексы
-            else:
-                x_frag = np.arange(len(fragment)) + i * window_size
+        for i, segment in enumerate(transformed_segments):
+            x_seg = np.arange(len(segment)) + i * window_size
             fig.add_trace(go.Scatter(
-                x=x_frag,
-                y=fragment,
+                x=x_seg,
+                y=segment,
                 mode='lines+markers',
-                name=f'Фрагмент {i + 1} ({method})'
-            ))
-        
-        # Добавляем вертикальные линии и подписи
-        for i in range(len(transformed_fragments)):
-            if reset_indices_flag:
-                x_line = i * window_size
-            else:
-                x_line = i * window_size
-            fig.add_trace(go.Scatter(
-                x=[x_line, x_line],
-                y=[min(y), max(y)],
-                mode='lines',
-                line=dict(color='gray', dash='dash'),
-                showlegend=False
-            ))
-            x_text = x_line + window_size / 2
-            fig.add_trace(go.Scatter(
-                x=[x_text],
-                y=[max(y)],
-                mode='text',
-                text=[f'Фрагмент {i + 1}'],
-                textposition='top center',
-                showlegend=False
+                name=f'Сегмент {i + 1} ({method})'
             ))
         
         fig.update_layout(
-            title=f"Результат для фрагментов ({method})",
+            title=f"Результат для сегментов ({method})",
             xaxis_title="Индекс",
             yaxis_title="Значение"
         )
@@ -333,40 +478,44 @@ def update_graph(show_clicks, reset_clicks, apply_method_clicks, cluster_clicks,
     
     elif button_id == 'cluster-button':
         fig = go.Figure()
-        if not fragments or not cluster_labels:
+        if not segments or not cluster_labels:
             return go.Figure()
         
-        # Используем исходные фрагменты для отображения
-        data_to_plot = fragments
+        # Используем исходные сегменты для отображения, но метки кластеров из обработанных данных
+        data_to_plot = segments
+        unique_labels = set(cluster_labels)
+        n_clusters = len(unique_labels)  # Количество уникальных меток кластеров
         
-        # Создаем цветовую палитру
-        n_clusters = max(cluster_labels) + 1
-        colors = plotly.colors.qualitative.Plotly[:n_clusters]
+        # Расширяем цветовую палитру, если кластеров больше, чем цветов в Plotly
+        colors = plotly.colors.qualitative.Plotly
+        if n_clusters > len(colors):
+            colors = colors * (n_clusters // len(colors) + 1)  # Повторяем палитру
         
-        for i, fragment in enumerate(data_to_plot):
-            if i >= len(cluster_labels):
+        # Отрисовка сегментов с метками кластеров
+        for i, segment in enumerate(data_to_plot):
+            if i >= len(cluster_labels):  # Проверяем, что индекс не выходит за пределы списка меток
                 break
             cluster_label = cluster_labels[i]
-            color = colors[cluster_label]
-            if reset_indices_flag:
-                x_frag = np.arange(len(fragment))  # Сбрасываем индексы
+            
+            # Если метка кластера -1 (шум), используем серый цвет
+            if cluster_label == -1:
+                color = 'gray'
             else:
-                x_frag = np.arange(len(fragment)) + i * window_size
+                color = colors[cluster_label % len(colors)]  # Используем модуль для избежания IndexError
+            
+            x_seg = np.arange(len(segment)) + i * window_size
             fig.add_trace(go.Scatter(
-                x=x_frag,
-                y=fragment,
+                x=x_seg,
+                y=segment,
                 mode='lines+markers',
                 name=f'Кластер {cluster_label}',
                 marker=dict(color=color),
                 line=dict(color=color)
             ))
         
-        # Добавляем вертикальные линии и подписи
-        for i in range(len(fragments)):
-            if reset_indices_flag:
-                x_line = i * window_size
-            else:
-                x_line = i * window_size
+        # Добавляем вертикальные линии для границ сегментов
+        for i in range(len(segments)):
+            x_line = i * window_size
             fig.add_trace(go.Scatter(
                 x=[x_line, x_line],
                 y=[min(y), max(y)],
@@ -374,21 +523,25 @@ def update_graph(show_clicks, reset_clicks, apply_method_clicks, cluster_clicks,
                 line=dict(color='gray', dash='dash'),
                 showlegend=False
             ))
-            x_text = x_line + window_size / 2
+        
+        # Добавляем текстовые аннотации для номеров сегментов
+        for i in range(len(segments)):
+            x_text = i * window_size + window_size / 2  # Центр сегмента
+            y_text = max(y)  # Размещаем текст сверху
             fig.add_trace(go.Scatter(
                 x=[x_text],
-                y=[max(y)],
+                y=[y_text],
                 mode='text',
-                text=[f'Фрагмент {i + 1}'],
+                text=[f'Сегмент {i + 1}'],
                 textposition='top center',
                 showlegend=False
             ))
         
         fig.update_layout(
-            title="Кластеризация фрагментов",
+            title="Кластеризация сегментов (исходные данные с метками кластеров)",
             xaxis_title="Индекс",
             yaxis_title="Значение",
-            showlegend=True
+            showlegend=True  # Включаем легенду
         )
         return fig
 
