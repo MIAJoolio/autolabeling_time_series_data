@@ -6,6 +6,10 @@ import pandas as pd
 from io import StringIO
 import base64
 from sklearn.metrics import silhouette_score
+<<<<<<< HEAD
+=======
+<<<<<<<< HEAD:dash_plotly.py
+>>>>>>> e896a037057469ed5eb415607aa037fecc06983c
 # import plotly.colors
 # from core.feature_extraction.feature_extraction import (
 #     paa_features, tsa_detrend, tsa_acf, statistical_features,
@@ -13,6 +17,20 @@ from sklearn.metrics import silhouette_score
 #     dwt_features, dft_signal, dft_approximation
 # )
 from tools.main import *
+<<<<<<< HEAD
+=======
+========
+import plotly.colors
+from core.feature_extraction.feature_extraction import (
+    paa_features, tsa_detrend, tsa_acf, statistical_features,
+    signal_peaks_features, stft_features, dft_components,
+    dwt_features, dft_signal, dft_approximation
+)
+from density_clustering import apply_dbscan, apply_birch
+from hierarchical_clustering import apply_agglomerative
+from partitioning_clustering import apply_kmeans, apply_ts_kmeans
+>>>>>>>> e896a037057469ed5eb415607aa037fecc06983c:interface/dash_plotly.py
+>>>>>>> e896a037057469ed5eb415607aa037fecc06983c
 
 # Инициализация Dash-приложения
 app = dash.Dash(__name__, prevent_initial_callbacks='initial_duplicate')

@@ -1,8 +1,6 @@
+legacy
+__pycache__
 basic_312/
-interface/dash_plotly copy.py
-interface/dash_plotly_back.py
-interface/plotly_example.py
 nir_folder/
-core/clustering/__pycache__
 *.xlsx
 *.csv
