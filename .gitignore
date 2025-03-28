@@ -1,6 +1,9 @@
 legacy
-__pycache__
-basic_312/
+__pycache__/
+.basic_312/
 nir_folder/
 *.xlsx
 *.csv
+core/generation/__pycache__/
+core/utils/__pycache__/
+core/clustering/__pycache__/

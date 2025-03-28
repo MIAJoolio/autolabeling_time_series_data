@@ -6,14 +6,13 @@ import numpy as np
 import torch
 
 from torch.utils.data import Dataset, DataLoader
-from core.generation import (
-    Generator, linear_trend, quadratic_trend, exponential_trend, 
-    seasonal_series, harmonic_oscillator, sawtooth_wave, random_walk,
-    linear_trend_params, quadratic_trend_params, exponential_trend_params,
-    seasonal_series_params, harmonic_oscillator_params, sawtooth_wave_params,
-    random_walk_params
-)
-from core.utils import plot_series, plot_series_grid
+from core.generation import *
+from core.utils import *
+
+__all__ = [
+    "Synthetic_dataset_generator",
+    "Synthetic_dataset"
+]   
 
 class Synthetic_dataset_generator:
     """
@@ -135,8 +134,8 @@ class Synthetic_dataset_generator:
         
         # Преобразование данных в формат для JSON
         data = {
-            'series': [s.tolist() for s in series],  # Преобразуем numpy массивы в списки
-            'labels': labels.tolist(),  # Преобразуем numpy массив в список
+            'series': [s.tolist() for s in series], 
+            'labels': labels.tolist(), 
             'configs': self.class_configs,
             'metadata': {
                 'num_classes': self.num_classes,
@@ -169,7 +168,6 @@ class Synthetic_dataset(Dataset):
         self.configs = data['configs']
         self.metadata = data['metadata']
         
-        # Преобразование в многомерный формат, если указано
         if n_dims is not None:
             self._transform_to_multidimensional(n_dims)
     
@@ -183,13 +181,9 @@ class Synthetic_dataset(Dataset):
         """
         transformed_series = []
         for series in self.series:
-            # Создаем массив для многомерного ряда
             multi_series = np.zeros((len(series), n_dims))
-            
-            # Заполняем первое измерение исходным рядом
             multi_series[:, 0] = series
             
-            # Для каждого следующего измерения создаем сдвинутую версию
             for dim in range(1, n_dims):
                 shift = dim * len(series) // n_dims
                 multi_series[:, dim] = np.roll(series, shift)
@@ -223,85 +217,36 @@ class Synthetic_dataset(Dataset):
         return series, label
 
 def main():
-    # Пример использования
-    # Создание генератора датасета
+    # Генерация датасета, который бы состоял из всех видов генераторов
     generator = Synthetic_dataset_generator(
-        num_classes=2,
-        series_per_class=100,
-        num_blocks=2,
-        block_length=50,
+        num_classes=3,
+        series_per_class=5,
+        num_blocks=1,
+        block_length=40,
         random_state=42
     )
     
-    # Конфигурация для первого класса (линейный тренд + сезонность)
+    # Конфигурация для первого класса (линейный тренд)
     generator.set_class_config(1, [
         {
             'type': 'linear',
-            'param_config': {
-                'k': 1,
-                'slope_d': -0.2,
-                'slope_up': 0.2,
-                'slope_q': 20,
-                'noise_u': 0.1,
-                'noise_d': 0.5,
-                'noise_q': 20,
-                'random_state': 42
-            }
-        },
-        {
-            'type': 'seasonal',
-            'param_config': {
-                'k': 1,
-                'amplitude_d': 1.5,
-                'amplitude_up': 2.5,
-                'amplitude_q': 20,
-                'frequency_d': 0.8,
-                'frequency_up': 1.2,
-                'frequency_q': 20,
-                'phase_d': 0,
-                'phase_up': 2*np.pi,
-                'phase_q': 20,
-                'noise_d': 0.1,
-                'noise_up': 0.3,
-                'noise_q': 20,
-                'random_state': 42
-            }
+            'param_config': generator.param_functions['linear'](random_state=23)
         }
     ])
     
-    # Конфигурация для второго класса (экспоненциальный тренд + гармонический осциллятор)
+    # Конфигурация для второго класса (сезонные данные)
     generator.set_class_config(2, [
         {
-            'type': 'exponential',
-            'param_config': {
-                'k': 1,
-                'alpha_d': 0.05,
-                'alpha_up': 0.15,
-                'alpha_q': 20,
-                'noise_d': 0.2,
-                'noise_up': 0.4,
-                'noise_q': 20,
-                'random_state': 42
-            }
-        },
+            'type': 'seasonal',
+            'param_config': generator.param_functions['seasonal'](random_state=23)
+        }
+    ])
+    
+    # Конфигурация для третьего класса (сезонные данные)
+    generator.set_class_config(3, [
         {
-            'type': 'harmonic',
-            'param_config': {
-                'k': 1,
-                'amplitude_d': 1.0,
-                'amplitude_up': 2.0,
-                'amplitude_q': 20,
-                'frequency_d': 1.3,
-                'frequency_up': 1.7,
-                'frequency_q': 20,
-                'damping_d': 0.05,
-                'damping_up': 0.15,
-                'damping_q': 20,
-                'noise_d': 0.1,
-                'noise_up': 0.3,
-                'noise_q': 20,
-                'random_state': 42
-            }
+            'type': 'seasonal',
+            'param_config': generator.param_functions['seasonal'](random_state=74)
         }
     ])
     
@@ -309,18 +254,14 @@ def main():
     series, labels = generator.generate_dataset()
     
     # Сохранение датасета
-    generator.save_dataset(series, labels, 'data/synthetic_dataset1.json')
+    generator.save_dataset(series, labels, 'data/test_dataset1.json')
     
     # Загрузка датасета (одномерный вариант)
-    dataset_1d = Synthetic_dataset('data/synthetic_dataset1.json')
-    
-    # Загрузка датасета (многомерный вариант)
-    dataset_3d = Synthetic_dataset('data/synthetic_dataset1.json', n_dims=3)
+    dataset_1d = Synthetic_dataset('data/test_dataset1.json')
     
     # Создание загрузчиков данных
     dataloader_1d = DataLoader(dataset_1d, batch_size=32, shuffle=True)
-    dataloader_3d = DataLoader(dataset_3d, batch_size=32, shuffle=True)
-    
+
     # Проверка загрузки данных
     for batch_series, batch_labels in dataloader_1d:
         print("1D данные:")
@@ -328,33 +269,17 @@ def main():
         print(f"Labels: {batch_labels}")
         break
         
-    for batch_series, batch_labels in dataloader_3d:
-        print("\n3D данные:")
-        print(f"Batch shape: {batch_series.shape}")
-        print(f"Labels: {batch_labels}")
-        break
-    
     # Визуализация разных классов (для одномерного случая)
     class_series = []
     class_labels = []
-    for class_id in range(1, generator.num_classes + 1):
+    for class_id in range(1, len(np.unique(dataset_1d.labels)) + 1):
         class_indices = [i for i, label in enumerate(labels) if label == class_id]
         if class_indices:
             class_series.append(series[class_indices[0]])
             class_labels.append(f"Класс {class_id}")
-    
-    # Визуализация представителей разных классов
-    plot_series(
-        series_list=class_series,
-        labels=class_labels,
-        plot_title="Сравнение представителей разных классов",
-        ylabel="Значение",
-        xlabel="Время",
-        figsize=(12, 6)
-    )
-    
+
     # Визуализация 5 рядов для каждого класса
-    for class_id in range(1, generator.num_classes + 1):
+    for class_id in range(1, len(np.unique(dataset_1d.labels)) + 1):
         class_indices = [i for i, label in enumerate(labels) if label == class_id][:5]
         if class_indices:
             class_series = [series[i] for i in class_indices]
