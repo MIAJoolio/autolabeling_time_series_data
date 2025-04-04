@@ -1,5 +1,5 @@
 from .ts_generators import *
-from .synth_dataset import *
+from .ts_datasets import *
 
 __all__ = [
     "linear_trend",
@@ -18,5 +18,7 @@ __all__ = [
     "random_walk_params",
     "Generator",
     "Synthetic_dataset_generator",
-    "Synthetic_dataset"
+    "Synthetic_dataset", 
+    "Parametric_dataset_generator",
+    "Parametric_dataset"
 ]

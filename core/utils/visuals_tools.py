@@ -7,7 +7,8 @@ __all__ = [
 ]
 
 def plot_series(series_list, labels=None, plot_title="Заголовок", 
-                ylabel="Значение", xlabel="Время", figsize=(12, 6), grid=True):
+                ylabel="Значение", xlabel="Время", figsize=(12, 6), grid=True,
+                save_path=None):
     """
     Визуализация одного или нескольких временных рядов на одном графике.
     
@@ -27,6 +28,8 @@ def plot_series(series_list, labels=None, plot_title="Заголовок",
         Размер фигуры (ширина, высота)
     grid : bool, optional
         Отображать сетку или нет
+    save_path : str, optional
+        Путь для сохранения графика. Если None, график только отображается
     """
     # Преобразуем одиночный ряд в список
     if not isinstance(series_list, (list, tuple)):
@@ -48,12 +51,15 @@ def plot_series(series_list, labels=None, plot_title="Заголовок",
     plt.legend()
     plt.grid(grid)
     plt.tight_layout()
-    plt.show()
+    if save_path is not None:
+        plt.savefig(save_path)
+    else:
+        plt.show()
 
 
 def plot_series_grid(series_list, labels=None, x_series=None, plot_title="Заголовок",
                      ylabel="Значение", xlabel="Время", figsize=(12, 6), grid=True,
-                     layout='vertical', nrows=None, ncols=None):
+                     layout='vertical', nrows=None, ncols=None, save_path=None):
     """
     Визуализация временных рядов в виде сетки графиков.
     
@@ -81,6 +87,8 @@ def plot_series_grid(series_list, labels=None, x_series=None, plot_title="Заг
         'grid' - графики располагаются в виде сетки
     nrows, ncols : int, optional
         Количество строк и столбцов в сетке (только для layout='grid')
+    save_path : str, optional
+        Путь для сохранения графика. Если None, график только отображается
     """
     if not series_list:
         raise ValueError("Список временных рядов не может быть пустым")
@@ -126,7 +134,10 @@ def plot_series_grid(series_list, labels=None, x_series=None, plot_title="Заг
     
     fig.suptitle(plot_title)
     plt.tight_layout()
-    plt.show()
+    if save_path is not None:
+        plt.savefig(save_path)
+    else:
+        plt.show()
 
 
 def main():

@@ -1,6 +1,6 @@
 import numpy as np
 from pathlib import Path
-from core.generation.synth_dataset import Synthetic_dataset_generator
+from core.generation.ts_datasets import Synthetic_dataset_generator
 from core.generation import (
     linear_trend_params, quadratic_trend_params, exponential_trend_params,
     seasonal_series_params, harmonic_oscillator_params, sawtooth_wave_params,

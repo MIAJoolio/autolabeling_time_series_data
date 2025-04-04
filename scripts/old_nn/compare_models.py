@@ -14,7 +14,7 @@ from sklearn.decomposition import PCA
 from models.base_autoencoder import LSTMAutoencoder
 from models.teacher_forcing_autoencoder import TeacherForcingAutoencoder
 from models.attention_autoencoder import AttentionAutoencoder
-from core.generation.synth_dataset import Synthetic_dataset
+from core.generation.ts_datasets import Synthetic_dataset
 
 def plot_reconstructions(name, originals, reconstructions, save_dir, n_samples=5):
     """

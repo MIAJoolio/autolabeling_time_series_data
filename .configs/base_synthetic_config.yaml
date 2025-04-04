@@ -1,0 +1,36 @@
+# общие параметры
+general: 
+  num_classes: 2 # количество классов в датасете
+  series_per_class: 10 # кол-во рядов для каждого класса
+  num_blocks: 2 # количество сегментов в ряду
+  block_length: 50 # длина каждого сегмента
+  random_state: 21
+  generation_function_params:
+    seasonal:
+      k: 1
+      amplitude_d: 1
+      amplitude_u: 10
+      amplitude_q: 10
+      frequency_d: 1.0
+      frequency_u: 2.0
+      frequency_q: 10
+      phase_d: 1
+      phase_u: 3.14
+      phase_q: 10
+# параметры генераторов
+series_generation:
+  - class_id: 1
+    blocks:
+      - type: "seasonal"
+        params: None  # Если None, то генерация параметров будет сделана автоматически, используя random_state они будут сгененрированы соотвествующей функцией генерации (см. core/generation/ts_generators.py
+      - type: "seasonal"
+        params: None     
+  - class_id: 2
+    blocks:
+      - type: "linear"
+        params: None  
+      - type: "linear"
+        params: None
+output:
+  save_path: "data/synth_dt1/synthetic_dataset1.json"
+  save_dir_path: "data/synth_dt1/pics"

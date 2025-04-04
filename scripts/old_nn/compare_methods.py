@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bouldin_score
-from core.generation.synth_dataset import Synthetic_dataset
+from core.generation.ts_datasets import Synthetic_dataset
 from core.feature_extraction.scipy_signal import (
     scipy_trend, scipy_seasonality, scipy_structural_changes,
     scipy_noise, scipy_cross_correlation
