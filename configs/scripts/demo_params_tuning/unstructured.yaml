@@ -1,0 +1,32 @@
+general:
+  k: 
+    - 0.5
+    - 1
+    - 5
+    - 10 
+  length:
+    - 50
+    - 100
+    - 300
+    - 500
+    - 1000
+
+specific:
+  harmonic:
+    amplitude_d: 1
+    amplitude_u: 10
+    amplitude_q: 20
+    frequency_d: 0.1
+    frequency_u: 2.0
+    frequency_q: 20
+    damping_d: 0.5
+    damping_u: 2.0
+    damping_q: 20
+
+  random_walk:
+    initial_value_d: 0
+    initial_value_u: 10
+    initial_value_q: 20
+    noise_std_d: 0.1
+    noise_std_u: 2.0
+    noise_std_q: 20

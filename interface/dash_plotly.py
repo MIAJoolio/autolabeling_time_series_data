@@ -11,7 +11,7 @@ from sklearn.metrics import silhouette_score
 <<<<<<<< HEAD:dash_plotly.py
 >>>>>>> e896a037057469ed5eb415607aa037fecc06983c
 # import plotly.colors
-# from core.feature_extraction.feature_extraction import (
+# from src.feature_extraction.feature_extraction import (
 #     paa_features, tsa_detrend, tsa_acf, statistical_features,
 #     signal_peaks_features, stft_features, dft_components,
 #     dwt_features, dft_signal, dft_approximation
@@ -21,7 +21,7 @@ from tools.main import *
 =======
 ========
 import plotly.colors
-from core.feature_extraction.feature_extraction import (
+from src.feature_extraction.feature_extraction import (
     paa_features, tsa_detrend, tsa_acf, statistical_features,
     signal_peaks_features, stft_features, dft_components,
     dwt_features, dft_signal, dft_approximation

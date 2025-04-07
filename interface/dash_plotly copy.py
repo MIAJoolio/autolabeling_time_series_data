@@ -7,7 +7,7 @@ from io import StringIO
 import base64
 from sklearn.metrics import silhouette_score
 import plotly.colors
-from core.feature_extraction.feature_extraction import (
+from src.feature_extraction.feature_extraction import (
     paa_features, tsa_detrend, tsa_acf, statistical_features,
     signal_peaks_features, stft_features, dft_components,
     dwt_features, dft_signal, dft_approximation
