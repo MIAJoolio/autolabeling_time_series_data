@@ -10,6 +10,7 @@ general:
     - 300
     - 500
     - 1000
+  random_state: 22
 
 specific:
   linear:

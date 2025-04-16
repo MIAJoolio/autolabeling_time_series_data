@@ -1,6 +1,6 @@
 from .ts_generators import *
+from .ts_noise_generators import *
 from .ts_datasets import *
-from .noise_generators import *
 
 __all__ = [
     # ts_generators
@@ -18,11 +18,19 @@ __all__ = [
     "sawtooth_wave_params",
     "random_walk",
     "random_walk_params",
-    # noise_generators
+    "Time_series_generators_catalog",
+    # ts_noise_generators
     "normal_noise",
     "normal_noise_params",
+    "poisson_noise",
+    "poisson_noise_params",
+    "uniform_noise",
+    "exponential_noise",
+    "exponential_noise_params",
+    "Noise_generators_catalog",
     # ts_datasets
-    "Time_series_generator",
+    "Basic_generator",
+    "Basic_dataset",
     "save_generated_data",
-    "Time_series_dataset"
+    "split_train_test"
 ]

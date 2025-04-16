@@ -1,5 +1,5 @@
 """
-Демонстрация работы функций генераторов и влияние параметров на вид графиков из скрипта src.generation.ts_generators.
+Скрипт по демонстрации распределений при использовании разных параметров , а также демонстрация работы функций генераторов и функций генерации параметров из скрипта src.generation.ts_generators
 
 #TODO описать результаты
 
@@ -28,22 +28,21 @@ def show_trend_funcs(config_path: Path = 'configs/scripts/demo_params_tuning/tre
     linear_params = config_file['specific']['linear']
     quadratic_params = config_file['specific']['quadratic']
     exp_params = config_file['specific']['exponential']
-    random_state = 22
 
     # Влияние k на функции генерации
     for length in general['length']:
         # Линейный тренд
-        ts_linear = [linear_trend(**linear_trend_params(k=k, random_state=random_state), length=length) for k in general['k']]
+        ts_linear = [linear_trend(**linear_trend_params(k=k, random_state=general['random_state']), length=length) for k in general['k']]
         ts_linear_lbl = [f'linear k = {k}' for k in general['k']]
         plot_series(ts_linear, ts_linear_lbl, save_path=(SAVE_PATH / f'trend/linear/k_range_len_{length}.png'))
 
         # Квадратичный тренд
-        ts_quadratic = [quadratic_trend(**quadratic_trend_params(k=k, random_state=random_state), length=length) for k in general['k']]
+        ts_quadratic = [quadratic_trend(**quadratic_trend_params(k=k, random_state=general['random_state']), length=length) for k in general['k']]
         ts_quadratic_lbl = [f'quadratic k = {k}' for k in general['k']]
         plot_series(ts_quadratic, ts_quadratic_lbl, save_path=(SAVE_PATH / f'trend/quadratic/k_range_len_{length}.png'))
 
         # Экспоненциальный тренд
-        ts_exp = [exponential_trend(**exponential_trend_params(k=k, random_state=random_state), length=length) for k in general['k']]
+        ts_exp = [exponential_trend(**exponential_trend_params(k=k, random_state=general['random_state']), length=length) for k in general['k']]
         ts_exp_lbl = [f'exponential k = {k}' for k in general['k']]
         plot_series(ts_exp, ts_exp_lbl, save_path=(SAVE_PATH / f'trend/exponential/k_range_len{length}.png'))
         
@@ -94,17 +93,17 @@ def show_periodic_funcs(config_path: Path = 'configs/scripts/demo_params_tuning/
     # Влияние k на функции генерации
     for length in general['length']:
         # Пилообразный сигнал
-        ts_sawtooth = [sawtooth_wave(**sawtooth_wave_params(k=k, random_state=42), length=length) for k in general['k']]
+        ts_sawtooth = [sawtooth_wave(**sawtooth_wave_params(k=k, random_state=general['random_state']), length=length) for k in general['k']]
         ts_sawtooth_lbl = [f'sawtooth k = {k}' for k in general['k']]
         plot_series(ts_sawtooth, ts_sawtooth_lbl, save_path=(SAVE_PATH / f'periodic/sawtooth/k_range_len{length}.png'))
 
         # Сезонность
-        ts_seasonal = [seasonal_series(**seasonal_series_params(k=k, random_state=42), length=length) for k in general['k']]
+        ts_seasonal = [seasonal_series(**seasonal_series_params(k=k, random_state=general['random_state']), length=length) for k in general['k']]
         ts_seasonal_lbl = [f'seasonal k = {k}' for k in general['k']]
         plot_series(ts_seasonal, ts_seasonal_lbl, save_path=(SAVE_PATH / f'periodic/seasonal/k_range_len{length}.png'))
 
         # Гармонический осциллятор
-        ts_harmonic = [harmonic_oscillator(**harmonic_oscillator_params(k=k, random_state=42), length=length) for k in general['k']]
+        ts_harmonic = [harmonic_oscillator(**harmonic_oscillator_params(k=k, random_state=general['random_state']), length=length) for k in general['k']]
         ts_harmonic_lbl = [f'harmonic k = {k}' for k in general['k']]
         plot_series(ts_harmonic, ts_harmonic_lbl, save_path=(SAVE_PATH / f'periodic/harmonic/k_range_len{length}.png'))
         
@@ -172,12 +171,12 @@ def show_unstructured_funcs(config_path: Path = 'configs/scripts/demo_params_tun
     # Влияние k на функции генерации
     for length in general['length']:
         # Гармонический осциллятор
-        ts_harmonic = [harmonic_oscillator(**harmonic_oscillator_params(k=k, random_state=42), length=length) for k in general['k']]
+        ts_harmonic = [harmonic_oscillator(**harmonic_oscillator_params(k=k, random_state=general['random_state']), length=length) for k in general['k']]
         ts_harmonic_lbl = [f'harmonic k = {k}' for k in general['k']]
         plot_series(ts_harmonic, ts_harmonic_lbl, save_path=(SAVE_PATH / f'unstr/harmonic/k_range_len{length}.png'))
 
         # Случайное блуждание
-        ts_random_walk = [random_walk(**random_walk_params(k=k, random_state=42), length=length) for k in general['k']]
+        ts_random_walk = [random_walk(**random_walk_params(k=k, random_state=general['random_state']), length=length) for k in general['k']]
         ts_random_walk_lbl = [f'random_walk k = {k}' for k in general['k']]
         plot_series(ts_random_walk, ts_random_walk_lbl, save_path=(SAVE_PATH / f'unstr/random_walk/k_range_len{length}.png'))
             

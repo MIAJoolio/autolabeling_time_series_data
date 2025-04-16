@@ -2,6 +2,8 @@ from .scipy_signal import scipy_trend, scipy_seasonality, scipy_structural_chang
 
 from .other_methods import test_method_statistics, test_method_peaks, test_method_stft, test_method_dft, test_method_dwt, test_method_paa
 
+from .autoencoders import *
+
 __all__ = [
     'scipy_trend',
     'scipy_seasonality',
@@ -13,5 +15,7 @@ __all__ = [
     'test_method_stft',
     'test_method_dft',
     'test_method_dwt',
-    'test_method_paa'
+    'test_method_paa',
+    # классы автоэнкодеров
+    
 ]

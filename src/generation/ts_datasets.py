@@ -6,298 +6,323 @@ import itertools
 import numpy as np
 import torch
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
+from torch.utils.data import Dataset, DataLoader, random_split
 
-from torch.utils.data import Dataset, DataLoader
-from src.generation.ts_generators import (
-    linear_trend, linear_trend_params,
-    quadratic_trend, quadratic_trend_params,
-    exponential_trend, exponential_trend_params,
-    seasonal_series, seasonal_series_params,
-    sawtooth_wave, sawtooth_wave_params,
-    harmonic_oscillator, harmonic_oscillator_params,
-    random_walk, random_walk_params
-)
-
-from src.generation.noise_generators import normal_noise, normal_noise_params
-from src.utils import *
+from src.utils import load_config_file, setup_logger
+from src.generation.ts_generators import Time_series_generators_catalog
+from src.generation.ts_noise_generators import Noise_generators_catalog
 
 # добавим logger
 logger = setup_logger(__name__, level='debug')
 
 __all__ = [
-    "Time_series_generator",
+    "Basic_generator",
+    "Basic_dataset",
     "save_generated_data",
-    "Time_series_dataset"
+    "split_train_test"
 ]   
 
-class Time_series_generator:    
+class Basic_generator:
     """
     Класс для генерации временного ряда из блоков.
     """
-    
-    def __init__(self, block_length: Union[int, dict], generators:dict=None, n_generators:dict=None):
-        # список для хранения блоков
+    def __init__(self, ts_catalog: Optional[Time_series_generators_catalog] = None, noise_catalog: Optional[Noise_generators_catalog] = None, config_path:Path=None
+    ):
+        # Инициализация каталогов генераторов
+        self.ts_catalog = ts_catalog or Time_series_generators_catalog()
+        logger.debug(f'Generators catalog was initialized automatically:\n{ts_catalog is None}')
+        self.noise_catalog = noise_catalog or Noise_generators_catalog()
+        logger.debug(f'Noise generators catalog was initialized automatically:\n{noise_catalog is None}')
+        
+        # Информация по блокам 
+        # Список для хранения блоков
         self.blocks = []
-        self.block_length = block_length
-        logger.info(f"Initialized Generator with block_length={block_length}")
-
-        if generators is None:
-            self.generators = {
-                'linear': {
-                    'generator':linear_trend,
-                    'params_generator':linear_trend_params
-                },
-                'quadratic': {
-                    'generator':quadratic_trend,
-                    'params_generator':quadratic_trend_params
-                },
-                'exponential': {
-                    'generator':exponential_trend,
-                    'params_generator':exponential_trend_params
-                },
-                'seasonal': {
-                    'generator':seasonal_series,
-                    'params_generator':seasonal_series_params
-                },
-                'sawtooth': {
-                    'generator':sawtooth_wave,
-                    'params_generator':sawtooth_wave_params
-                },
-                'harmonic': {
-                    'generator':harmonic_oscillator,
-                    'params_generator':harmonic_oscillator_params
-                },
-                'random': {
-                    'generator':random_walk,
-                    'params_generator':random_walk_params
-                }
-            }
-            logger.debug('Time-series function are initialized!')
+        self.blocks_length = []
         
-        if n_generators is None:   
-            self.n_generators = {
-                'normal': {
-                    'generator':normal_noise,
-                    'params_generator':normal_noise_params
-                }, 
-            } 
-            logger.debug('Noise function are initialized!')
-
-    def add_block(self, ts_generator, ts_params=None, noise_generator=None, noise_params=None, random_state=None):
+        # если параметры задаются через файл конфигурацию, то добавление блоков выполняется автоматически
+        if config_path is not None:
+            blocks = self._read_config_file(config_path)
+            for block in blocks:
+                self.add_block(**block)
+        
+    def add_block(self, block_length: int, ts_generator, ts_params=None, noise_generator=None, noise_params=None, random_state=None):
         """
-        Функция для добавления блока генерации 
+        Добавление блока генерации. 
+        
+        1. Уточнение пары функций генерации и генерации параметров 
+        2. Уточнение интервалов функций генерации параметров 
+        3. Длина отрезка временного ряда   
         """
+        ts_generator_type = ts_generator if isinstance(ts_generator, str) else None
+        noise_generator_type = noise_generator if isinstance(noise_generator, str) else None
         
-        use_ts_generator, auto_ts_params = False, False
-        use_noise_generator, auto_noise_params = False, False
-        
-        # Если задана не функция генератор, а её тип в формате str
-        if isinstance(ts_generator, str):
-            use_ts_generator = True
-            logger.debug('Used internal generator by name from self.generators')
-        
-        # Если параметры не заданы и используется self.generators
-        if ts_params is None and use_ts_generator:
-            auto_ts_params = True
-            logger.debug('Used autogeneration parameters function')
-        
-        # Аналогично для noise_generator
-        if isinstance(noise_generator, str):
-            use_noise_generator = True
-            logger.debug('Used internal generator by name from self.n_generators')
-        
-        if noise_params is None and use_noise_generator:
-            auto_noise_params = True
-            logger.debug('Used autogeneration parameters noise function')
-        
+        # Проверяем параметры генерации и генератор
+        ts_generator, ts_params = self._resolve_generator(ts_generator, ts_params, 'ts', random_state)
+        # Аналогично, но для шума если он есть
+        noise_generator, noise_params = self._resolve_generator(noise_generator, noise_params, 'noise', random_state)
+
         # Добавление блока
-        self.blocks.append(
-            {
-            'ts_generator': self.generators[ts_generator]['generator'] if use_ts_generator else ts_generator, 
-            'ts_params': self.generators[ts_generator]['params_generator'](random_state=random_state) if auto_ts_params else ts_params,
-            'noise_generator': self.n_generators[noise_generator]['generator'] if use_noise_generator else noise_generator, 
-            'noise_params': self.n_generators[noise_generator]['params_generator'](random_state=random_state) if auto_noise_params else noise_params
-            }
-        )
+        self.blocks.append({
+            'ts_generator': ts_generator,
+            'ts_params': ts_params,
+            'ts_generator_type':ts_generator_type,
+            'noise_generator': noise_generator,
+            'noise_params': noise_params,
+            'noise_generator_type':noise_generator_type
+        })
+        self.blocks_length.append(block_length)
+
+        logger.debug(f'Added block with parameters:\n{self.blocks[-1]}')
+
+    def _read_config_file(self, config_path) -> List[dict]:
+        """
+        Загрузка конфигурации из YAML файла.
+        """
+        blocks = []
         
-        logger.debug(f'Added block:\n  time-series params {self.blocks[-1]["ts_params"]}\n  noise params {self.blocks[-1]["noise_params"]}')
+        config = load_config_file(config_path)
+        logger.debug(f'Generators and parameters were initialized by config:\npath={config_path}\n{config}')
+        
+        for block_config in config:
+            
+            ts_generator = block_config.get('ts_generator')
+            logger.debug(f"Generator type:\n{ts_generator}")
+            ts_params = block_config.get('ts_params', None)
+            logger.debug(f"Generator parameters:\n{ts_params}")
+            noise_generator = block_config.get('noise_generator')
+            logger.debug(f"Noise generator type:\n{noise_generator}")
+            noise_params = block_config.get('noise_params', None)
+            logger.debug(f"Noise generator parameters:\n{noise_params}")
+            block_length = block_config.get('block_length', 100)
+            logger.debug(f"Block length:\n{block_length}")
+            random_state = block_config.get('random_state', None)
+            logger.debug(f"Random state:\n{random_state}")
+
+            # Получаем конфигурации для обновления параметров каталога
+            ts_gen_params = block_config.get('ts_gen_params', None)
+            logger.debug(f"New ts_catalog parameters:\n{ts_gen_params}")
+            
+            if ts_gen_params is not None:
+                self.ts_catalog.update_generator_params(ts_generator, ts_gen_params)
+            
+            noise_gen_params = block_config.get('noise_gen_params', None)
+            logger.debug(f"New noise_catalog parameters:\n{noise_gen_params}")
+            
+            if noise_gen_params is not None:
+                self.noise_catalog.update_generator_params(noise_generator, noise_gen_params)
+
+            blocks.append({
+                'block_length':block_length,
+                'ts_generator': ts_generator,
+                'ts_params': ts_params,
+                'noise_generator': noise_generator,
+                'noise_params': noise_params,
+                'random_state': random_state
+            })
+                        
+        return blocks
 
     def remove_block(self, index: int):
         """
         Удаление блока по индексу.
-        
         Args:
             index: Индекс блока для удаления.
         """
         if 0 <= index < len(self.blocks):
             removed_block = self.blocks.pop(index)
-            logger.debug(f'Removed block at index {index}: {removed_block}')
+            print(f"Removed block at index {index}: {removed_block}")
+            self.blocks_length.pop(index)
         else:
-            logger.warning(f'Attempted to remove block at invalid index {index}')
-    
-    def update_block_params(self, index: int, new_ts_params: Dict=None, new_noise_params: Dict=None):
+            raise IndexError(f"Invalid block index: {index}")
+
+    def update_block_params(self, index: int, new_ts_params: Dict = None, new_noise_params: Dict = None):
         """
         Обновление параметров блока.
-        
         Args:
             index: Индекс блока для обновления.
-            new_params: Новые параметры.
+            new_ts_params: Новые параметры временного ряда.
+            new_noise_params: Новые параметры шума.
         """
         if 0 <= index < len(self.blocks):
             if new_ts_params is not None:
-                old_params = self.blocks[index]['ts_params']
                 self.blocks[index]['ts_params'].update(new_ts_params)
-                logger.debug(f'Updated block {index} time-series params:\n   {old_params} -> {new_ts_params}')
+                print(f"Updated block {index} time-series params: {new_ts_params}")
             if new_noise_params is not None:
-                old_params = self.blocks[index]['noise_params']
                 self.blocks[index]['noise_params'].update(new_noise_params)
-                logger.debug(f'Updated block {index} noise params:\n   {old_params} -> {new_noise_params}')
+                print(f"Updated block {index} noise params: {new_noise_params}")
         else:
-            logger.warning(f'Attempted to update block at invalid index {index}')
-    
-    def generate(self, random_state:int=None) -> np.ndarray:
-        """
-        Генерация временного ряда из блоков.
-        
-        Args:
-            with_noise: Если True, то генерация будет использовать параметры шума 
-        
-        Returns:
-            np.ndarray: Сгенерированный временной ряд.
-        """
+            raise IndexError(f"Invalid block index: {index}")
 
+    def generate(self, random_state=None, mode: Literal['determinated', 'random'] = "determinated") -> np.ndarray:
+        """
+        Генерация временного ряда.
+        Args:
+            mode: Режим генерации
+        """
         if not self.blocks:
-            logger.error("No blocks available for generation")
-            raise ValueError("Нет блоков для генерации")
+            raise ValueError("No blocks available for generation")
         
-        with logger.start_run("generate_time_series"):
-            # инициализация полного ряда
-            time_series = np.array([], dtype=np.float64)
-            # инициализация последних значений каждого блока
-            end_pts = {}
+        time_series = np.array([], dtype=np.float64)
+        end_pts = {}
+
+        for idx, (block, block_length) in enumerate(zip(self.blocks, self.blocks_length)):
+            ts_generator = block['ts_generator']
+            ts_params = block['ts_params']
+            noise_generator = block['noise_generator']
+            noise_params = block['noise_params']
+
+            if mode == 'random':
+                ts_params = self._generate_random_params(block['ts_generator_type'], 'ts')
+                logger.debug(f'TS random generation parameters:\n{ts_params}')
+                noise_params = self._generate_random_params(block['noise_generator_type'], 'noise')
+                logger.debug(f'Noise random generation parameters:\n{noise_params}')
+
+            else:
+                logger.debug(f'TS determinated generation parameters:\n{ts_params}')
+                logger.debug(f'Noise determinated generation parameters:\n{noise_params}')
+
+
+            # Проверяем, что параметры не None
+            if ts_params is None:
+                raise ValueError(f"Missing parameters for time series generator in block {idx}")
             
-            # Генерация временного ряда
-            for inx, block in enumerate(self.blocks):
-                logger.debug(f'Generating block {inx}: {block}')
-                
-                # проверка на существование параметров временного ряда
-                if block['ts_params'] is None:
-                    logger.error(f'Invalid block without parameters:\n  {block}')
-                    raise ValueError(f"No parameters for block {inx}")
+            ts_length = block_length if idx == 0 else block_length + 1
+            block_series = ts_generator(**ts_params, length=ts_length)
 
-                # проверка на совместимость параметров для генерации ВР и шума
-                try:
-                    block['ts_generator'](**block['ts_params'], length=self.block_length)
-                except:
-                    logger.error(f'Invalid parameters for block ts generator: \n  {block["ts_params"]}, {block["ts_generator"]}')
-                    raise ValueError(f"Invalid parameters for block {inx}")
-                
-                # генерация ряда
-                ts_length = self.block_length if inx == 0 else self.block_length+1
-                block_series = np.array(block['ts_generator'](**block['ts_params'], length=ts_length)) + (0 if end_pts.get(inx-1) is None else end_pts.get(inx-1))
-                block_series = block_series[1:] if inx >= 1 else block_series
-                # генерация и добавление шума к ВР
-                if block.get('noise_generator') is not None and block.get('noise_params') is not None:
-                    
-                    try:
-                        noise = block['noise_generator'](data=block_series, random_state=random_state, **block['noise_params'])
-                    except Exception as e:
-                        logger.error(f'Error in noise generator: {e}')
-                        raise ValueError(f"Invalid parameters for block {inx}")
+            if idx > 0 and end_pts.get(idx - 1) is not None:
+                block_series += end_pts[idx - 1]
 
-                    block_series += noise
-                
-                # соединяем блоки 
-                time_series = np.concatenate([time_series, block_series])
-                logger.debug(f'Time series shape: {time_series.shape}')
-                # Обработка последних значений
-                end_pts[inx] = block_series[-1]
-            
-            logger.info(f'Generated time series with shape: {time_series.shape}')
-            
-            return time_series
+            if noise_generator and noise_params:
+                noise = noise_generator(data=block_series, random_state=random_state, **noise_params)
+                block_series = block_series.astype(np.float64)
+                block_series += noise
 
-def save_generated_data(data:Dict[str, List[int]], save_path:Path):
-    """
-    Переводит данные из формата: 
-    
-    [
-        метка:{
-            data:[список временных рядов],
-            q_time_series:[количество рядов],
-            segments:{размеры каждого блока для каждого класса
-            } 
-    ]
-    
-    в json файл 
-    
-    Пример input для функции
-    """
+            time_series = np.concatenate([time_series, block_series[1:] if idx > 0 else block_series])
+            end_pts[idx] = block_series[-1]
 
-    ts_id = 0
-    json_file = []
-    for class_id, _ in enumerate(data):
-        for item in data[class_id]['data']:
-            json_file.append({
-                'ts_id':ts_id,
-                'class_id':class_id,
-                'segments':data[class_id]['segments'],
-                'row': list(item) if isinstance(item, np.ndarray) else item  
-            }) 
-            ts_id += 1
-    
-    with open(save_path, 'w') as file:
-        json.dump(json_file, file)
-        
-    logger.debug(f'File was saved at {save_path}')
+        return time_series
 
-class Time_series_dataset(Dataset):
-    """
-    Класс для загрузки и использования синтетического датасета в PyTorch.
-    """
-    def __init__(self, data_path: Union[str, Path], n_dims: Optional[int] = None, normalize: bool = False, norm_type: Literal['minimax','zscore','robust_sklearn'] = 'minmax'):
+    def generate_multiple(self, num_series: int, mode: str = "random") -> List[np.ndarray]:
         """
-        Инициализация датасета.
-
-        Args:
-            data_path: Путь к JSON файлу с данными
-            n_dims: Количество измерений для преобразования (если None, оставляет одномерным)
-            normalize: Флаг для нормализации данных
-            norm_type: Тип нормализации ('minmax' или 'zscore')
+        Генерация нескольких временных рядов.
         """
-        with open(data_path, 'r') as f:
-            data = json.load(f)
+        series_list = []
+        for _ in range(num_series):
+            series = self.generate(mode=mode)
+            series_list.append(series)
+        return series_list
+
+    def _resolve_generator(self, generator, params=None, catalog_type:Literal['ts','noise']='ts', random_state=None):
+        
+        # Т.к. функция используется для проверки генерации шума, то при его отсутствии сохраняем None значения
+        if generator is None and params is None:
+            logger.debug(f"Generator and parameters are not set!")
+            return None, None
+        
+        catalog = self.ts_catalog if catalog_type == 'ts' else self.noise_catalog
+        
+        if isinstance(generator, str):
+            logger.debug(f"Generator function is from catalog:\n{generator}")
+            # Получаем информацию о генераторе из каталога
+            generator_info = catalog.get_generator(generator)
+            generator = generator_info['generator']
+        
+            # Если параметры не заданы, используем автоматическую генерацию
+            if params is None:
+                params = generator_info['params_generator'](random_state=random_state)
+                logger.debug(f'Parameters generated automatically:\n{params}')
             
-        self.series = [np.array(data[inx]['row']) for inx, item in enumerate(data)]
-        self.labels = [data[inx]['class_id'] for inx, item in enumerate(data)]
+            else:
+                logger.debug(f'Parameters were set: {params}')
+            
+        else:
+            # Если generator является функцией
+            logger.debug(f"Generator function is not from catalog:\n{generator}")
         
-        self.normalize_funcs = {
-            'zscore':StandardScaler,
-            'minmax':MinMaxScaler,
-            'robust_sklearn':RobustScaler
-        }
+        return generator, params
+    
+    def _generate_random_params(self, gen_type:str, catalog_type:Literal['ts', 'noise']) -> dict:
+
+        # Т.к. функция используется для проверки генерации шума, то при его отсутствии сохраняем None значения
+        if gen_type is None:
+            return None
         
+        catalog = self.ts_catalog if catalog_type == 'ts' else self.noise_catalog
+        
+        return catalog.get_generator(gen_type)['params_generator']()
+
+
+class Basic_dataset(Dataset):
+    """
+    Класс для создания датасета временных рядов.
+    """
+    def __init__(self, data_path: str, normalize: bool = False, norm_type: str = "minmax"):
+        self.data = self.load_data(data_path)
+        self.normalize = normalize
+        self.norm_type = norm_type
         if normalize:
-            scaler = self.normalize_funcs[norm_type]()
-            self.series = scaler.fit_transform(self.series)
-            
-    def __len__(self) -> int:
-        """Возвращает количество временных рядов в датасете."""
+            self.scaler = self._get_scaler(norm_type)
+            self.series = self.scaler.fit_transform(self.data["series"])
+        else:
+            self.series = self.data["series"]
+        self.labels = self.data["labels"]
+
+    def load_data(self, data_path: str) -> Dict[str, Union[List[np.ndarray], List[int]]]:
+        """
+        Загрузка данных из JSON файла.
+        """
+        data = load_config_file(data_path)
+        series = [np.array(item['row']) for item in data]
+        labels = [item['class_id'] for item in data]
+        return {"series": series, "labels": labels}
+
+    def _get_scaler(self, norm_type: str):
+        if norm_type == "minmax":
+            from sklearn.preprocessing import MinMaxScaler
+            return MinMaxScaler()
+        elif norm_type == "zscore":
+            from sklearn.preprocessing import StandardScaler
+            return StandardScaler()
+        elif norm_type == "robust":
+            from sklearn.preprocessing import RobustScaler
+            return RobustScaler()
+        else:
+            raise ValueError(f"Unsupported normalization type: {norm_type}")
+
+    def __len__(self):
         return len(self.series)
-    
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, int]:
-        """
-        Получение элемента датасета.
 
-        Args:
-            idx: Индекс элемента
-
-        Returns:
-            Кортеж (временной ряд как тензор, метка класса)
-        """
+    def __getitem__(self, idx):
         series = self.series[idx]
-        logger.debug(f'series {idx} length: {len(series)}')
         label = self.labels[idx]
-        logger.debug(f'series {idx} label: {label}')
-                
         return series, label
+    
+def save_generated_data(data: List[Dict], save_path: str):
+    """
+    Сохранение данных в JSON файл.
+    """
+    with open(save_path, 'w') as file:
+        json.dump(data, file, indent=4)
+
+
+def split_train_test(dataset: Dataset, train_ratio: float = 0.8, random_state: Optional[int] = None) -> Tuple[DataLoader, DataLoader]:
+    """
+    Разделение датасета на train и test выборки с использованием random_split.
+    Args:
+        dataset: Исходный датасет (например, Time_series_dataset).
+        train_ratio: Доля данных для обучающей выборки (по умолчанию 0.8).
+        random_state: Случайное состояние для воспроизводимости.
+    Returns:
+        Кортеж с Dataset для train и test.
+    """
+    if random_state is not None:
+        torch.manual_seed(random_state)
+
+    # Определяем размеры выборок
+    train_size = int(train_ratio * len(dataset))
+    test_size = len(dataset) - train_size
+
+    # Разбиваем датасет
+    train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
+
+    return train_dataset, test_dataset
