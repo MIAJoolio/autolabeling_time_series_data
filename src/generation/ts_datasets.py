@@ -1,7 +1,6 @@
 from typing import List, Dict, Optional, Tuple, Union, Literal
 from pathlib import Path
 import json
-import itertools
 
 import numpy as np
 import torch
@@ -83,7 +82,7 @@ class Basic_generator:
         config = load_config_file(config_path)
         logger.debug(f'Generators and parameters were initialized by config:\npath={config_path}\n{config}')
         
-        for block_config in config:
+        for inx, block_config in enumerate(config):
             
             ts_generator = block_config.get('ts_generator')
             logger.debug(f"Generator type:\n{ts_generator}")
@@ -103,12 +102,24 @@ class Basic_generator:
             logger.debug(f"New ts_catalog parameters:\n{ts_gen_params}")
             
             if ts_gen_params is not None:
+                # создаем новый тип генератора на основе старого
+                new_ts_generator_name = '_'.join([ts_generator,str(inx)])
+                new_ts_generator = self.ts_catalog.get_generator(ts_generator)
+                self.ts_catalog.add_generator(new_ts_generator_name, new_ts_generator['generator'], new_ts_generator['params_generator'])
+                # переобозначаем обратно
+                ts_generator = new_ts_generator_name
                 self.ts_catalog.update_generator_params(ts_generator, ts_gen_params)
             
             noise_gen_params = block_config.get('noise_gen_params', None)
             logger.debug(f"New noise_catalog parameters:\n{noise_gen_params}")
             
             if noise_gen_params is not None:
+                # создаем новый тип генератора на основе старого
+                new_noise_generator_name = '_'.join([noise_generator,str(inx)])
+                new_noise_generator = self.noise_catalog.get_generator(noise_generator)
+                self.noise_catalog.add_generator(new_noise_generator_name, new_noise_generator['generator'], new_noise_generator['params_generator'])
+                # переобозначаем обратно
+                noise_generator = new_noise_generator_name
                 self.noise_catalog.update_generator_params(noise_generator, noise_gen_params)
 
             blocks.append({
@@ -278,13 +289,10 @@ class Basic_dataset(Dataset):
 
     def _get_scaler(self, norm_type: str):
         if norm_type == "minmax":
-            from sklearn.preprocessing import MinMaxScaler
             return MinMaxScaler()
         elif norm_type == "zscore":
-            from sklearn.preprocessing import StandardScaler
             return StandardScaler()
         elif norm_type == "robust":
-            from sklearn.preprocessing import RobustScaler
             return RobustScaler()
         else:
             raise ValueError(f"Unsupported normalization type: {norm_type}")
