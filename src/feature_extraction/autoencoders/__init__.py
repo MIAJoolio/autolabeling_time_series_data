@@ -1,15 +1,13 @@
-from .basic_models import Basic_autoencoder, train_autoencoder
-from .cnn_autoencoder import CNN_autoencoder, train_cnn_autoencoder
-from .lstm_autoencoder import LSTM_autoencoder, train_lstm_autoencoder
+from .models import Basic_LAE_2l, Adaptive_LAE_2l, Basic_LSTMAE
+from .utils import train_autoencoder, extract_latent_features, visualize_all_latent_points
 
 __all__ = [
-    # Базовая модель
-    'Basic_autoencoder',
-    'train_autoencoder',
-    # CNN спецификация
-    'CNN_autoencoder',
-    "train_cnn_autoencoder",
-    # LSTM спецификация
-    "LSTM_autoencoder", 
-    "train_lstm_autoencoder"
+    # Модели
+    'Basic_LAE_2l',
+    'Adaptive_LAE_2l',
+    'Basic_LSTMAE',
+    # функции из utils
+    'train_autoencoder', 
+    'extract_latent_features',
+    'visualize_all_latent_points'
 ]

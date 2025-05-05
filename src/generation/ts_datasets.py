@@ -7,7 +7,7 @@ import torch
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 from torch.utils.data import Dataset, DataLoader, random_split
 
-from src.utils import load_config_file, setup_logger
+from src.utils import load_config_file, setup_logger, plot_series
 from src.generation.ts_generators import Time_series_generators_catalog
 from src.generation.ts_noise_generators import Noise_generators_catalog
 
@@ -18,8 +18,10 @@ __all__ = [
     "Basic_generator",
     "Basic_dataset",
     "save_generated_data",
-    "split_train_test"
+    "split_train_test",
+    "generate_synthetic_dataset"
 ]   
+
 
 class Basic_generator:
     """
@@ -267,17 +269,25 @@ class Basic_dataset(Dataset):
     """
     Класс для создания датасета временных рядов.
     """
-    def __init__(self, data_path: str, normalize: bool = False, norm_type: str = "minmax"):
+    def __init__(self, data_path: str, normalize: bool = False, norm_type: Literal['minmax', 'zscore', 'robust'] = "minmax"):
         self.data = self.load_data(data_path)
         self.normalize = normalize
         self.norm_type = norm_type
+        
         if normalize:
             self.scaler = self._get_scaler(norm_type)
-            self.series = self.scaler.fit_transform(self.data["series"])
+            
+            # Собираем все ряды в один массив для обучения scaler
+            all_series = np.vstack([s.reshape(-1, 1) if s.ndim == 1 else s for s in self.data["series"]])  # [total_sequence_length, input_dim]
+            self.scaler.fit(all_series)
+            
+            # Применяем нормализацию к каждому ряду
+            self.series = [self.normalize_series(series) for series in self.data["series"]]
         else:
             self.series = self.data["series"]
+        
         self.labels = self.data["labels"]
-
+        
     def load_data(self, data_path: str) -> Dict[str, Union[List[np.ndarray], List[int]]]:
         """
         Загрузка данных из JSON файла.
@@ -288,6 +298,9 @@ class Basic_dataset(Dataset):
         return {"series": series, "labels": labels}
 
     def _get_scaler(self, norm_type: str):
+        """
+        Возвращает объект нормализации.
+        """
         if norm_type == "minmax":
             return MinMaxScaler()
         elif norm_type == "zscore":
@@ -297,14 +310,43 @@ class Basic_dataset(Dataset):
         else:
             raise ValueError(f"Unsupported normalization type: {norm_type}")
 
+    def normalize_series(self, series: np.ndarray) -> np.ndarray:
+        """
+        Нормализует временной ряд.
+        
+        Args:
+            series: Временной ряд размерности [sequence_length, input_dim].
+        
+        Returns:
+            np.ndarray: Нормализованный временной ряд.
+        """
+        if series.ndim == 1:
+            series = series.reshape(-1, 1)  # Преобразуем одномерный ряд в двумерный
+        
+        # Проверяем, что размерность данных соответствует ожиданиям scaler
+        if series.shape[1] != self.scaler.n_features_in_:
+            raise ValueError(
+                f"Input data has {series.shape[1]} features, but the scaler expects {self.scaler.n_features_in_} features."
+            )
+        
+        normalized_series = self.scaler.transform(series)
+        return normalized_series
+
     def __len__(self):
         return len(self.series)
 
     def __getitem__(self, idx):
+        """
+        Возвращает временной ряд и метку.
+        
+        Returns:
+            Tuple[np.ndarray, int]: Временной ряд размерности [sequence_length, input_dim] и метка.
+        """
         series = self.series[idx]
         label = self.labels[idx]
         return series, label
-    
+
+
 def save_generated_data(data: List[Dict], save_path: str):
     """
     Сохранение данных в JSON файл.
@@ -334,3 +376,22 @@ def split_train_test(dataset: Dataset, train_ratio: float = 0.8, random_state: O
     train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
 
     return train_dataset, test_dataset
+
+
+def generate_synthetic_dataset(config_paths:List[str], save_path:str='data/synth_dataset/dataset.json', num_series:int=100):
+    """
+    Функция для генерации toy-dataset синтетических данных 
+    """
+    
+    full_data = []
+    save_path = Path(save_path)
+    config_paths = config_paths if isinstance(config_paths, list) else Path(config_paths).iterdir()
+    
+    for inx, path in enumerate(sorted(config_paths)):
+        cluster_generator = Basic_generator(config_path=path)
+        cluster_data = cluster_generator.generate_multiple(num_series=num_series)
+        
+        plot_series(cluster_data[:10], [i for i in range(10)], plot_title=f'Cluster {inx+1}', save_path=save_path.parent / f'cluster_{inx+1}.png')
+        full_data += [{'class_id':inx+1, 'row':list(row)} for row in cluster_data]
+    
+    save_generated_data(full_data, save_path=save_path)

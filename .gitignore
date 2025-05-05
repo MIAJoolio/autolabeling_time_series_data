@@ -9,10 +9,13 @@ core/utils/__pycache__/
 core/clustering/__pycache__/
 core/feature_extraction/__pycache__/
 __pycache__
+scripts/learning_results/
 
 nir_folder/
 s4/
 data/
+CoST/
+ts2vec/
 
 *.xlsx
 *.csv

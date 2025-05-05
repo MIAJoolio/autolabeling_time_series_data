@@ -1,9 +1,9 @@
 -
-  ts_generator: "seasonal"
+  ts_generator: "exponential"
   ts_gen_params: 
-    frequency_d: 0.5
-    frequency_u: 1.0
-    frequency_q: 10
+    alpha_d: 0.01
+    alpha_u: 0.1
+    alpha_q: 10
   noise_generator: "normal"
   noise_gen_params:
     noise_pct_d: 0

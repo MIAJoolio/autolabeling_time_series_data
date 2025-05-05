@@ -32,5 +32,6 @@ __all__ = [
     "Basic_generator",
     "Basic_dataset",
     "save_generated_data",
-    "split_train_test"
+    "split_train_test",
+    "generate_synthetic_dataset"
 ]
