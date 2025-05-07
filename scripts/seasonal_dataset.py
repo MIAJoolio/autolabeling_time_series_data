@@ -5,7 +5,7 @@ from src.generation import *
 from src.utils import *
 
 
-def generate_Linear_dataset(config_paths:List[str], save_path:str='data/trend/trend_100.json', num_series:int=100):
+def generate_Seasonal_dataset(config_paths:List[str], save_path:str='data/seasonal/seasonal_100.json', num_series:int=100):
     """
     Функция для генерации toy-dataset с трендами
     """
@@ -14,9 +14,9 @@ def generate_Linear_dataset(config_paths:List[str], save_path:str='data/trend/tr
 def main():
     NUM_SERIES = 100
     
-    generate_Linear_dataset(config_paths='configs/trend_encoder/trend_100_full', save_path= f'data/synthetic/trend_100_full/linear_{NUM_SERIES}.json',num_series=NUM_SERIES)
+    generate_Seasonal_dataset(config_paths='configs/seasonal_encoder/seasonal_500', save_path= f'data/synthetic/seasonal_500/seasonal_{NUM_SERIES}.json',num_series=NUM_SERIES)
     
-    dataset = Basic_dataset(f'data/synthetic/trend_100_full/linear_{NUM_SERIES}.json')
+    dataset = Basic_dataset(f'data/synthetic/seasonal_500/seasonal_{NUM_SERIES}.json')
     
     print(dataset[0])
     

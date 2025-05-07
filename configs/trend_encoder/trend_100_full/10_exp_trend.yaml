@@ -1,0 +1,12 @@
+-
+  ts_generator: "exponential"
+  ts_gen_params: 
+    alpha_d: 0.01
+    alpha_u: 0.1
+    alpha_q: 10
+  noise_generator: "normal"
+  noise_gen_params:
+    noise_pct_d: 0
+    noise_pct_u: 0.01
+    noise_pct_q: 100
+  block_length: 100

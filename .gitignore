@@ -24,3 +24,5 @@ neural_prophet/
 *.csv
 *.pyc
 *.pt
+*.pth
+*.png

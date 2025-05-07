@@ -41,7 +41,7 @@ def training_trend_LSTM_AE(dataset_path: str, save_path: str):
 
             # Конфигурация обучения
             config = Training_config(
-                epochs=100,
+                epochs=20,
                 lr=1e-3,
                 weight_decay=1e-5,
                 patience=10,
@@ -76,10 +76,23 @@ def training_trend_LSTM_AE(dataset_path: str, save_path: str):
                     save_path=save_path / f'{dt_name}_{str(hidden_size)}_{str(latent_dim)}_latent_space.png',
                     title=f"{dt_name.capitalize()} Latent Space (dim={latent_dim})"
                 )
+            
+            visualize_reconstructions_by_class(model=trained_model,data_loader=data_loader,
+            class_names={1: "Class 1", 2: "Class 2", 3: "Class 3", 4: "Class 4", 5: "Class 5", 6: "Class 6", 7: "Class 7", 8: "Class 8", 9: "Class 9", 10: "Class 10"},
+            num_samples_per_class=2,
+            device="cuda:1",
+            images_save_path= save_path/f'{str(hidden_size)}_{str(latent_dim)}/plots/')               
+            
 
 def main(): 
 
-    training_trend_LSTM_AE(f'data/synthetic/legacy/linear_100/Linear_dataset.json', 'scripts/trend_ae/linear_100/')
+    # training_trend_LSTM_AE(f'data/synthetic/trend_100/linear_100.json', 'scripts/trend_ae/linear_100/')
+    # training_trend_LSTM_AE(f'data/synthetic/trend_100_full/linear_100.json', 'scripts/trend_ae/linear_100_full/')
+    
+    training_trend_LSTM_AE(f'data/synthetic/seasonal_100/seasonal_100.json', 'scripts/seasonal_ae/seasonal_100/')
+    # training_trend_LSTM_AE(f'data/synthetic/seasonal_500/seasonal_500.json', 'scripts/seasonal_ae/seasonal_500/')
+    
+
 
 if __name__ == '__main__':
     main()

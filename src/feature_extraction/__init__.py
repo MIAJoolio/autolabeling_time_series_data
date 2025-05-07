@@ -4,7 +4,7 @@
 
 from .ts2vec_tools import get_ts2vec_feat
 
-from .autoencoders import Basic_autoencoder, LSTM_autoencoder, Basic_LAE_2l, Adaptive_LAE_2l, Basic_LSTMAE, Training_config, Basic_trainer, extract_latent_features, visualize_all_latent_points
+from .autoencoders import Basic_autoencoder, LSTM_autoencoder, Basic_LAE_2l, Adaptive_LAE_2l, Basic_LSTMAE, Training_config, Basic_trainer, extract_latent_features, visualize_all_latent_points, visualize_reconstructions_by_class
 
 
 __all__ = [
@@ -31,5 +31,6 @@ __all__ = [
     'Training_config',
     'Basic_trainer',
     'extract_latent_features',
-    'visualize_all_latent_points'
+    'visualize_all_latent_points',
+    'visualize_reconstructions_by_class'
 ]

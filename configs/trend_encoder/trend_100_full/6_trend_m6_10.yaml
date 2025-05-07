@@ -1,0 +1,12 @@
+-
+  ts_generator: "linear"
+  ts_gen_params: 
+    slope_d: -10
+    slope_u: -6
+    slope_q: 20
+  noise_generator: "normal"
+  noise_gen_params:
+    noise_pct_d: 0
+    noise_pct_u: 0.01
+    noise_pct_q: 100
+  block_length: 100

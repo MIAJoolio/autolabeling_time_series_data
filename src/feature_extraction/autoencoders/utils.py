@@ -262,3 +262,74 @@ def visualize_all_latent_points(
     plt.grid(True)
     plt.savefig(save_path)
     plt.close()
+    
+
+def visualize_reconstructions_by_class(
+    model: torch.nn.Module,
+    data_loader: torch.utils.data.DataLoader,
+    class_names: Dict[int, str],
+    num_samples_per_class: int = 3,
+    device: str = 'cpu',
+    images_save_path: Union[str, Path] = None
+):
+    """
+    Визуализирует реконструкции временных рядов по классам.
+    
+    :param model: обученная модель LSTM_autoencoder
+    :param data_loader: DataLoader, содержащий данные с метками (y)
+    :param class_names: словарь {class_id: class_name}
+    :param num_samples_per_class: количество примеров на класс для отображения
+    :param device: устройство ('cpu' или 'cuda')
+    :param images_save_path: путь к папке для сохранения изображений
+    """
+    model.eval()
+    model.to(device)
+
+    # Словарь для хранения данных по классам
+    class_to_samples = {cls: [] for cls in class_names}
+
+    with torch.no_grad():
+        # Проходим по данным до заполнения всех классов
+        for batch in data_loader:
+            x_batch, y_batch = batch[0].to(device).float(), batch[1].to(device).long()
+
+            for i in range(len(y_batch)):
+                label = y_batch[i].item()
+                if len(class_to_samples[label]) < num_samples_per_class:
+                    x_sample = x_batch[i:i+1]  # (1, seq_len, input_size)
+                    recon_sample, _ = model(x_sample)
+                    class_to_samples[label].append((x_sample.cpu().numpy()[0],
+                                                    recon_sample.cpu().numpy()[0]))
+
+            # Проверяем, собраны ли все нужные образцы
+            all_full = all(len(samples) >= num_samples_per_class for samples in class_to_samples.values())
+            if all_full:
+                break
+
+    # Создаём папку для сохранения, если указана
+    if images_save_path is not None:
+        save_dir = Path(images_save_path)
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+    # Для каждого класса строим графики
+    for cls, samples in class_to_samples.items():
+        class_name = class_names[cls]
+        print(f"Plotting reconstructions for class '{class_name}' ({cls})")
+
+        for idx, (original, reconstructed) in enumerate(samples):
+            plt.figure(figsize=(10, 3))
+            plt.plot(original[:, 0], label='Original', color='blue', linewidth=2)
+            plt.plot(original[:, 0], label='Reconstructed', color='red', linestyle='--', linewidth=2)
+            plt.title(f"{class_name} - Sample {idx + 1}")
+            plt.xlabel('Time Step')
+            plt.ylabel('Value')
+            plt.legend()
+            plt.grid(True)
+
+            if images_save_path is not None:
+                save_path = Path(images_save_path) / f"{class_name.replace(' ', '_')}_sample_{idx + 1}.png"
+                plt.savefig(save_path, dpi=300, bbox_inches='tight')
+                print(f"Saved plot to {save_path}")
+
+            plt.show()
+
