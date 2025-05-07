@@ -1,0 +1,12 @@
+model: AC_model
+param_grid:
+  n_clusters:
+    type: Integer
+    low: 2
+    high: 6
+  linkage:
+    type: Categorical
+    values: ["complete", "average", "single"] # ward work only with euclidean
+  metric:
+    type: Categorical
+    values: ["euclidean", "cosine", "l1", "l2"]

@@ -1,0 +1,16 @@
+model: BIRCH_model
+param_grid:
+  threshold:
+    type: Real
+    low: 0.1
+    high: 3
+    step: 0.2
+  branching_factor:
+    type: Integer
+    low: 10
+    high: 100
+    step: 10
+  n_clusters:
+    type: Integer
+    low: 2
+    high: 6

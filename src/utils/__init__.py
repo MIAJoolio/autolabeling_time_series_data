@@ -1,6 +1,7 @@
 from .visuals import *
 from .files_helper import *
 from .logger import *
+from .parse_UCR import *
 
 __all__ = [
     # visuals
@@ -10,5 +11,9 @@ __all__ = [
     'load_yaml_file',
     'load_config_file',
     # logger
-    'setup_logger'
+    'setup_logger',
+    # UCR data
+    'download_table_content',
+    'download_UCR_dataset',
+    'load_UCR'
 ]

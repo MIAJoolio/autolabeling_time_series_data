@@ -1,0 +1,20 @@
+model: Sklearn_kmeans_model
+param_grid:
+  n_clusters:
+    type: Integer
+    low: 2
+    high: 6
+    step: 1
+  init:
+    type: Categorical
+    values: ["k-means++", "random"]
+  n_init:
+    type: Integer
+    low: 5
+    high: 20
+    step: 10  
+  max_iter:
+    type: Integer
+    low: 100
+    high: 300
+    step: 100 

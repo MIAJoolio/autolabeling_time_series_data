@@ -1,0 +1,17 @@
+model: Sktime_kmedoids_model
+param_grid:
+  n_clusters:
+    type: Integer
+    low: 2
+    high: 6
+  metric:
+    type: Categorical
+    values: ["euclidean", "dtw"]
+  init_algorithm:
+    type: Categorical
+    values: ["random", "kmeans++"]
+  max_iter:
+    type: Integer
+    low: 20
+    high: 100
+    step: 10

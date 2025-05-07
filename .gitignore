@@ -17,9 +17,10 @@ s4/
 data/
 CoST/
 ts2vec/
-N-BEATS/
+n_beats/
 neural_prophet/
 
 *.xlsx
 *.csv
 *.pyc
+*.pt

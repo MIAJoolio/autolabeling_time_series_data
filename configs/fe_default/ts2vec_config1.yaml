@@ -1,0 +1,10 @@
+model_params:
+  output_dims: 32
+  hidden_dims: 32
+  depth: 10
+  n_epochs: 20
+  lr: 0.001
+encode_params:
+  encoding_window: True # значит используется 'full_series'
+  sliding_length: 1
+  sliding_padding: 50

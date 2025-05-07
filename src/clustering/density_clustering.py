@@ -1,50 +1,88 @@
 from sklearn.cluster import DBSCAN, Birch
 
-def apply_dbscan(X_train, X_test=None, **model_params):
+from src.clustering.Base_clustering_model import Base_clustering_model
+
+class DBSCAN_model(Base_clustering_model):
     """
-    Apply DBSCAN clustering to the data.
-
-    Parameters:
-        X_train (np.ndarray): 2D array of shape (n_samples, n_timesteps) for time-series or (n_samples, n_features) for points.
-        X_test (np.ndarray): 2D array of shape (n_samples, n_timesteps) for time-series or (n_samples, n_features) for points.
-        model_params: any parameters from sklearn.cluster.DBSCAN
-    
-    Returns:
-        np.ndarray: Cluster labels.
+    Реализация кластеризации с использованием алгоритма DBSCAN.
     """
-    # Apply DBSCAN
-    model = DBSCAN(**model_params)
-    
-    if X_test is None:
-        return model.fit_predict(X_train), model
-    
-    model.fit(X_train)
-    return model.fit_predict(X_test), model
+
+    def __init__(self):
+        super().__init__()
+        self.default_params = {
+            "eps": 0.5,
+            "min_samples": 5,
+            "metric": "euclidean",
+            "algorithm": "auto"
+        }
+
+    def fit_predict(self, X_train, X_test=None):
+        """
+        Применяет DBSCAN к обучающим данным и, при необходимости, к тестовым.
+
+        Parameters:
+            X_train (np.ndarray): 2D array of shape (n_samples, n_features).
+            X_test (np.ndarray): 2D array of shape (n_samples, n_features), optional.
+
+        Returns:
+            tuple: (метки кластеров, обученная модель)
+        """
+        # Проверяем, заданы ли параметры
+        model_params = self.default_params
+
+        self.model = DBSCAN(**model_params)
+
+        # Обучение на обучающей выборке
+        self.model.fit(X_train)
+        self.is_fitted = True
+
+        # Предсказание
+        if X_test is None:
+            labels = self.model.labels_
+        else:
+            labels = self.model.fit_predict(X_test)
+
+        return labels, self.model
 
 
-def apply_birch(X_train, X_test=None, **model_params):
+class BIRCH_model(Base_clustering_model):
     """
-    Apply BIRCH clustering to the data.
-
-    Parameters:
-        X_train (np.ndarray): 2D array of shape (n_samples, n_timesteps) for time-series or (n_samples, n_features) for points.
-        X_test (np.ndarray): 2D array of shape (n_samples, n_timesteps) for time-series or (n_samples, n_features) for points.
-        model_params: any parameters from sklearn.cluster.Birch
-    
-    Returns:
-        np.ndarray: Cluster labels.
+    Реализация кластеризации с использованием алгоритма BIRCH.
     """
-    # Apply BIRCH
-    model = Birch(**model_params)
-    
-    if X_test is None:
-        return model.fit_predict(X_train), model
-    
-    model.fit(X_train)
-    return model.predict(X_test), model
 
-def main():
-    return None
+    def __init__(self):
+        super().__init__()
+        self.default_params = {
+            "threshold": 0.5,
+            "branching_factor": 50,
+            "n_clusters": None, 
+            "compute_labels": True,
+            "copy": False
+        }
 
-if __name__ == '__main__':
-    main()
+    def fit_predict(self, X_train, X_test=None):
+        """
+        Обучает BIRCH на обучающих данных и предсказывает кластеры.
+
+        Parameters:
+            X_train (np.ndarray): Данные для обучения.
+            X_test (np.ndarray): Данные для предсказания (опционально).
+
+        Returns:
+            tuple: (метки кластеров, обученная модель)
+        """
+        model_params = self.default_params
+
+        self.model = Birch(**model_params)
+
+        # Обучение
+        self.model.fit(X_train)
+        self.is_fitted = True
+
+        # Предсказание
+        if X_test is None:
+            labels = self.model.labels_
+        else:
+            labels = self.model.predict(X_test)
+
+        return labels, self.model

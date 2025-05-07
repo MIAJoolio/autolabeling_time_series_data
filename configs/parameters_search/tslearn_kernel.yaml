@@ -1,0 +1,18 @@
+model: Tslearn_kernel_model
+param_grid:
+  n_clusters:
+    type: Integer
+    low: 2
+    high: 6
+  kernel:
+    type: Categorical
+    values: ["gak", "rbf", "cosine", "anova"]
+  sigma:
+    type: Real
+    low: 0.1
+    high: 2.0
+    step: 0.1
+  n_init:
+    type: Integer
+    low: 1
+    high: 10
