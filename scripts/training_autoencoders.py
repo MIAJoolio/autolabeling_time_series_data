@@ -4,7 +4,8 @@ from torch.utils.data import DataLoader
 from src.generation import *
 from src.feature_extraction import *
 
-def training_trend_LSTM_AE(dataset_path: str, save_path: str):
+
+def train_default_AEs(dataset_path: str, save_path: str):
     """
     Обучает автоэнкодер для декомпозиции тренда
     
@@ -16,82 +17,144 @@ def training_trend_LSTM_AE(dataset_path: str, save_path: str):
     save_path.mkdir(parents=True, exist_ok=True)
 
     # Загрузка и нормализация данных
-    dataset = Basic_dataset(data_path=dataset_path, normalize=True, norm_type="zscore")
+    dataset = Basic_dataset(data_path=dataset_path, normalize=False) # , norm_type="zscore")
+    # Разделение на train/val
+    train_dt, val_dt = split_train_test(dataset=dataset, train_ratio=0.8, random_state=42)
+    train_loader = DataLoader(train_dt, batch_size=4, shuffle=True)
+    val_loader = DataLoader(val_dt, batch_size=4, shuffle=False)
+    test_loader = DataLoader(val_dt, batch_size=1, shuffle=False)
 
-    for hidden_size in [16, 32, 64]:
-        for latent_dim in [16, 32, 64]:
-            # Размерность входа из первого элемента датасета
-            sample_x, _ = dataset[0]
+    input_dim = dataset[0][0].shape[1] # 1
+    seq_len = dataset[0][0].shape[0] # 100
+    input_size = input_dim * seq_len
+    
+    for hidden_dim in [16, 64, 256]: # [16, 32, 64, 128, 256]:
+        for latent_dim in [16, 64, 256]: # [16, 32, 64, 128, 256]:
 
-            if len(sample_x.shape) == 1:
-                sample_x = sample_x.unsqueeze(-1)
-            input_dim = sample_x.shape[1]
+            # Собираем Linear модель
+            encoder = Linear_encoder(input_size, latent_dim, hidden_dim)
+            decoder = Linear_decoder(latent_dim, input_size, hidden_dim)
+
+            lin_model = Linear_AE(encoder, decoder)
             
-            # Создаем модель
-            model = LSTM_autoencoder(input_size=input_dim, hidden_size=hidden_size, latent_size=latent_dim)
-
             # Подготовка пути сохранения для текущей модели
-            new_save_path = save_path / f"{str(hidden_size)}_{str(latent_dim)}"
+            new_save_path = save_path / f"Linear/{str(hidden_dim)}_{str(latent_dim)}"
             new_save_path.mkdir(parents=True, exist_ok=True)
-
-            # Разделение на train/val
-            train_dt, val_dt = split_train_test(dataset=dataset, train_ratio=0.6, random_state=42)
-            train_loader = DataLoader(train_dt, batch_size=4, shuffle=True)
-            val_loader = DataLoader(val_dt, batch_size=4, shuffle=False)
 
             # Конфигурация обучения
             config = Training_config(
-                epochs=20,
+                epochs_num=50,
                 lr=1e-3,
                 weight_decay=1e-5,
                 patience=10,
                 model_save_path=new_save_path,
                 device="cuda:1",
-                experiment_name=f"Trend_LSTM_AE_{str(hidden_size)}_{str(latent_dim)}"
+                experiment_name=f"Trend_Linear_AE_{str(hidden_dim)}_{str(latent_dim)}", 
+                delta = 0.0
             )
 
-            # Инициализируем трейнер
-            trainer = Basic_trainer(
-                model=model,
-                train_loader=train_loader,
-                val_loader=val_loader,
-                config=config
+            trainer = AE_trainer(
+                model=lin_model,
+                model_config=config,
+                train_data=train_loader,
+                val_data=val_loader,
+                test_data=test_loader
             )
 
             # Обучение
-            trained_model, history = trainer.train()
+            trainer.train_loop()
 
-            # Экстракция и визуализация латентных представлений
-            for data_loader, dt_name in zip([train_loader, val_loader], ['train', 'val']):
-                latents, labels = extract_latent_features(
-                    model=trained_model,
-                    data_loader=data_loader,
-                    device=config.device,
-                    logger=None,  # Можно передать свой логгер, если нужно
-                )
-                # Сохранение визуализации
-                visualize_all_latent_points(
-                    latents,
-                    labels,
-                    save_path=save_path / f'{dt_name}_{str(hidden_size)}_{str(latent_dim)}_latent_space.png',
-                    title=f"{dt_name.capitalize()} Latent Space (dim={latent_dim})"
-                )
+            # # Собираем LSTM модель
+            # encoder = LSTM_encoder(input_dim=input_dim, hidden_dim=hidden_dim, latent_dim=latent_dim)
+            # decoder = LSTM_decoder(latent_dim=latent_dim, hidden_dim=hidden_dim, output_dim=input_dim, seq_len=seq_len)
+
+            # lstm_model = LSTM_AE(encoder, decoder)
             
-            visualize_reconstructions_by_class(model=trained_model,data_loader=data_loader,
-            class_names={1: "Class 1", 2: "Class 2", 3: "Class 3", 4: "Class 4", 5: "Class 5", 6: "Class 6", 7: "Class 7", 8: "Class 8", 9: "Class 9", 10: "Class 10"},
-            num_samples_per_class=2,
-            device="cuda:1",
-            images_save_path= save_path/f'{str(hidden_size)}_{str(latent_dim)}/plots/')               
+            # # Подготовка пути сохранения для текущей модели
+            # new_save_path = save_path / f"LSTM/{str(hidden_dim)}_{str(latent_dim)}"
+            # new_save_path.mkdir(parents=True, exist_ok=True)
+
+            # # Конфигурация обучения
+            # config = Training_config(
+            #     epochs_num=50,
+            #     lr=1e-3,
+            #     weight_decay=1e-5,
+            #     patience=10,
+            #     model_save_path=new_save_path,
+            #     device="cuda:1",
+            #     experiment_name=f"Trend_LSTM_AE_{str(hidden_dim)}_{str(latent_dim)}",
+            #     delta = 0.005
+            # )
+
+            # trainer = AE_trainer(
+            #     model=lstm_model,
+            #     model_config=config,
+            #     train_data=train_loader,
+            #     val_data=val_loader,
+            #     test_data=test_loader
+            # )
+
+            # # Обучение
+            # trainer.train_loop()
+
+def check_validity(dataset_path, save_path):
+
+    save_path = Path(save_path)
+    save_path.mkdir(parents=True, exist_ok=True)
+    # Загрузка и нормализация данных
+    dataset = Basic_dataset(data_path=dataset_path, normalize=False) # , norm_type="zscore")
+    # Разделение на train/val
+    train_dt, val_dt = split_train_test(dataset=dataset, train_ratio=0.8, random_state=42)
+    train_loader = DataLoader(train_dt, batch_size=4, shuffle=True)
+    val_loader = DataLoader(val_dt, batch_size=4, shuffle=False)
+    test_loader = DataLoader(val_dt, batch_size=1, shuffle=False)
+
+    input_dim = dataset[0][0].shape[1] # 1
+    seq_len = dataset[0][0].shape[0] # 100
+    input_size = input_dim * seq_len
+    
+    for hidden_dim in [16, 64, 256]: # [16, 32, 64, 128, 256]:
+        for latent_dim in [16, 64, 256]: # [16, 32, 64, 128, 256]:
+
+            # Собираем Linear модель
+            encoder = Linear_encoder(input_size, latent_dim, hidden_dim)
+            decoder = Linear_decoder(latent_dim, input_size, hidden_dim)
+
+            lin_model = Linear_AE(encoder, decoder)
             
+            # Подготовка пути сохранения для текущей модели
+            new_save_path = save_path / f"Linear/{str(hidden_dim)}_{str(latent_dim)}"
+            new_save_path.mkdir(parents=True, exist_ok=True)
+
+            # Конфигурация обучения
+            config = Training_config(
+                epochs_num=50,
+                lr=1e-3,
+                weight_decay=1e-5,
+                patience=10,
+                model_save_path=new_save_path,
+                device="cuda:1",
+                experiment_name=f"Trend_Linear_AE_{str(hidden_dim)}_{str(latent_dim)}", 
+                delta = 0.0
+            )
+
+            trainer = AE_trainer(
+                model=lin_model,
+                model_config=config,
+                train_data=train_loader,
+                val_data=val_loader,
+                test_data=test_loader
+            )
+            
+            trainer.load_best_model(Path('scripts/trend_ae/linear_100/Linear')/ f"{hidden_dim}_{latent_dim}/best_model.pth")
+            trainer._plot_predictions()
 
 def main(): 
 
-    # training_trend_LSTM_AE(f'data/synthetic/trend_100/linear_100.json', 'scripts/trend_ae/linear_100/')
-    # training_trend_LSTM_AE(f'data/synthetic/trend_100_full/linear_100.json', 'scripts/trend_ae/linear_100_full/')
+    # train_default_AEs(f'data/synthetic/trend_100/linear_100.json', 'scripts/trend_ae/linear_100/')
     
-    training_trend_LSTM_AE(f'data/synthetic/seasonal_100/seasonal_100.json', 'scripts/seasonal_ae/seasonal_100/')
-    # training_trend_LSTM_AE(f'data/synthetic/seasonal_500/seasonal_500.json', 'scripts/seasonal_ae/seasonal_500/')
-    
+    check_validity(f'data/synthetic/trend_100_test/linear_100.json', 'scripts/trend_ae/linear_100_test/')
+    # train_default_AEs(f'data/synthetic/trend_100/linear_100.json', 'scripts/trend_ae/linear_100/')
 
 
 if __name__ == '__main__':

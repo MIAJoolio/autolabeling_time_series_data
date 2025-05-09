@@ -209,6 +209,8 @@ def main():
     # for dt_name in table_of_content['Dataset'].values:
     #     download_UCR_dataset(dt_name)
     download_UCR_dataset('ItalyPowerDemand')
+    download_UCR_dataset('Chinatown')
+    download_UCR_dataset('ECG200')
     
     
 if __name__ == '__main__':

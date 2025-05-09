@@ -1,12 +1,12 @@
 model_init:
-  output_dims: 320
+  output_dims: 64
   hidden_dims: 64
-  depth: 10
+  depth: 4
   lr: 0.001
   device: "cuda:1"
   batch_size: 8
 model_training:
-  n_epochs: 10
+  n_epochs: 30
   # n_iters: 200
   verbose: True
 encode_params:

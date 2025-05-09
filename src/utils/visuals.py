@@ -61,6 +61,8 @@ def plot_series(series_list, labels=None, plot_title="Заголовок",
         plt.savefig(save_path)
     else:
         plt.show()
+    
+    plt.close()
 
 
 def plot_series_grid(series_list, labels=None, x_series=None, plot_title="Заголовок",ylabel="Значение", xlabel="Время", figsize=(12, 6), grid=True,layout:Literal['vertical','horizontal','grid']='vertical', nrows=None, ncols=None, save_path=None):
@@ -146,7 +148,8 @@ def plot_series_grid(series_list, labels=None, x_series=None, plot_title="Заг
         plt.savefig(save_path)
     else:
         plt.show()
-
+    
+    plt.close()
 
 def main():
     return None

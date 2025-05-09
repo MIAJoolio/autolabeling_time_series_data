@@ -284,7 +284,7 @@ class Basic_dataset(Dataset):
             # Применяем нормализацию к каждому ряду
             self.series = [self.normalize_series(series) for series in self.data["series"]]
         else:
-            self.series = self.data["series"]
+            self.series = [series.reshape(series.shape[0],-1) for series in self.data["series"]]
         
         self.labels = self.data["labels"]
         

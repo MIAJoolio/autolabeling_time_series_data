@@ -15,6 +15,8 @@ def main():
     NUM_SERIES = 100
     
     generate_Linear_dataset(config_paths='configs/trend_encoder/trend_100_full', save_path= f'data/synthetic/trend_100_full/linear_{NUM_SERIES}.json',num_series=NUM_SERIES)
+
+    generate_Linear_dataset(config_paths='configs/trend_encoder/trend_100_test', save_path= f'data/synthetic/trend_100_test/linear_{NUM_SERIES}.json',num_series=NUM_SERIES)
     
     dataset = Basic_dataset(f'data/synthetic/trend_100_full/linear_{NUM_SERIES}.json')
     

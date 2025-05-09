@@ -1,17 +1,23 @@
-from .models import Basic_autoencoder, LSTM_autoencoder, Basic_LAE_2l, Adaptive_LAE_2l, Basic_LSTMAE
-from .utils import Training_config, Basic_trainer, extract_latent_features, visualize_all_latent_points, visualize_reconstructions_by_class
+from .base import Basic_AE, Basic_decoder, Basic_encoder
+from .core import Linear_decoder, Linear_encoder, LSTM_decoder, LSTM_encoder
+from .models import Linear_AE,  LSTM_AE
+from .utils import Training_config, AE_trainer, visualize_latent_space
 
 __all__ = [
+    # Абстрактные блоки
+    'Basic_AE', 
+    'Basic_decoder', 
+    'Basic_encoder',
+    # Блоки
+    'Linear_encoder',
+    'Linear_decoder',
+    'LSTM_encoder',
+    'LSTM_decoder',
     # Модели
-    'Basic_autoencoder',
-    'LSTM_autoencoder',
-    'Basic_LAE_2l',
-    'Adaptive_LAE_2l',
-    'Basic_LSTMAE'
-    # функции из utils
+    'LSTM_AE',
+    'Linear_AE',
+    # Функции обучения
     'Training_config', 
-    'Basic_trainer', 
-    'extract_latent_features', 
-    'visualize_all_latent_points',
-    'visualize_reconstructions_by_class'
+    'AE_trainer',
+    'visualize_latent_space'
 ]

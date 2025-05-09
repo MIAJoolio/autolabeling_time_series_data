@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "feature_extraction-local"
+version = "0.1.0"
+description = "Local installation of ts2vec, cost, neural_prophet for development"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = [
+    "feature_extraction.ts2vec",
+    "feature_extraction.cost",
+    "feature_extraction.neural_prophet"
+]
