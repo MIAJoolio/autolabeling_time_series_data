@@ -2,8 +2,9 @@ model: DBSCAN_model
 param_grid:
   eps:
     type: Real
-    low: 0.1
-    high: 1.0
+    low: 0.05
+    high: 3
+    step: 0.05
   min_samples:
     type: Integer
     low: 2

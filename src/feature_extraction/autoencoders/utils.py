@@ -350,6 +350,103 @@ def visualize_latent_space(train_latents, train_labels, val_latents, val_labels,
     plt.tight_layout()
     plt.savefig(model_save_path)
     plt.close()
+
+def visualize_3_latent_space(train_latents, train_labels, val_latents, val_labels, model_save_path):
+    """
+    Визуализация латентного пространства с помощью t-SNE.
+    Создаёт 3 графика:
+        1. Все данные (train + val)
+        2. Только train, с фоном val
+        3. Только val, с фоном train
+    """
+
+    # Объединяем все данные для t-SNE
+    combined = np.concatenate([train_latents, val_latents], axis=0)
+    labels_combined = np.concatenate([train_labels, val_labels], axis=0)
+
+    # Создаем маски для train/val
+    train_mask = np.array([True]*train_latents.shape[0] + [False]*val_latents.shape[0])
+    val_mask = ~train_mask
+
+    # Применяем t-SNE ко всем данным сразу
+    tsne = TSNE(n_components=2, random_state=42, init='pca', perplexity=30)
+    latents_2d = tsne.fit_transform(combined)
+
+    # Разделяем результаты обратно
+    train_2d = latents_2d[train_mask]
+    val_2d = latents_2d[val_mask]
+
+    # Получаем уникальные классы
+    unique_labels = np.unique(labels_combined)
+
+    # Цветовая палитра
+    cmap = plt.get_cmap('tab10')
+
+    Path(model_save_path).parent.mkdir(exist_ok=True)
+    # --- График 1: Все данные ---
+    plt.figure(figsize=(12, 8))
+    scatter_train = plt.scatter(train_2d[:, 0], train_2d[:, 1],
+                                c=train_labels, cmap=cmap, s=60,
+                                label='Train', edgecolor='k', alpha=0.7)
+    scatter_val = plt.scatter(val_2d[:, 0], val_2d[:, 1],
+                              c=val_labels, cmap=cmap, marker='X', s=100,
+                              label='Val', edgecolor='k', alpha=0.7)
+
+    handles, _ = scatter_train.legend_elements(prop="colors", num=len(unique_labels))
+    plt.legend(handles, unique_labels, title="Classes")
+    plt.title("Latent Space Visualization (t-SNE) - All Data")
+    plt.xlabel("t-SNE Dimension 1")
+    plt.ylabel("t-SNE Dimension 2")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(model_save_path.replace(".png", "_all.png"))
+    plt.close()
+
+    # --- График 2: Только train, с фоном val ---
+    plt.figure(figsize=(12, 8))
+
+    # Фон (val, почти прозрачный)
+    plt.scatter(val_2d[:, 0], val_2d[:, 1],
+                c=val_labels, cmap=cmap, s=60,
+                alpha=0.1, zorder=-1)
+
+    # Основные точки (train)
+    scatter_train = plt.scatter(train_2d[:, 0], train_2d[:, 1],
+                                c=train_labels, cmap=cmap, s=60,
+                                label='Train', edgecolor='k', alpha=0.7)
+
+    handles, _ = scatter_train.legend_elements(prop="colors", num=len(unique_labels))
+    plt.legend(handles, unique_labels, title="Classes")
+    plt.title("Latent Space Visualization (t-SNE) - Train with Val Background")
+    plt.xlabel("t-SNE Dimension 1")
+    plt.ylabel("t-SNE Dimension 2")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(model_save_path.replace(".png", "_train.png"))
+    plt.close()
+
+    # --- График 3: Только val, с фоном train ---
+    plt.figure(figsize=(12, 8))
+
+    # Фон (train, почти прозрачный)
+    plt.scatter(train_2d[:, 0], train_2d[:, 1],
+                c=train_labels, cmap=cmap, s=60,
+                alpha=0.1, zorder=-1)
+
+    # Основные точки (val)
+    scatter_val = plt.scatter(val_2d[:, 0], val_2d[:, 1],
+                              c=val_labels, cmap=cmap, marker='X', s=100,
+                              label='Val', edgecolor='k', alpha=0.7)
+
+    handles, _ = scatter_val.legend_elements(prop="colors", num=len(unique_labels))
+    plt.legend(handles, unique_labels, title="Classes")
+    plt.title("Latent Space Visualization (t-SNE) - Val with Train Background")
+    plt.xlabel("t-SNE Dimension 1")
+    plt.ylabel("t-SNE Dimension 2")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(model_save_path.replace(".png", "_val.png"))
+    plt.close()
     
 # def visualize_latent_space(train_latents, train_labels, val_latents, val_labels,model_save_path):
 #     """

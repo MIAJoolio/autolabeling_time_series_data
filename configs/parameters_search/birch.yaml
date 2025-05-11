@@ -4,7 +4,7 @@ param_grid:
     type: Real
     low: 0.1
     high: 3
-    step: 0.2
+    step: 0.1
   branching_factor:
     type: Integer
     low: 10
@@ -13,4 +13,4 @@ param_grid:
   n_clusters:
     type: Integer
     low: 2
-    high: 6
+    high: 20

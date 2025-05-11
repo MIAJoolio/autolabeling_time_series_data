@@ -6,7 +6,7 @@ model_init:
   device: "cuda:1"
   batch_size: 8
 model_training:
-  n_epochs: 10
+  n_epochs: 20
   # n_iters: 200
   verbose: True
 encode_params:
@@ -14,3 +14,4 @@ encode_params:
   sliding_length: 1
   sliding_padding: 50
   batch_size: 1
+model_save_path: "experiments/FE_with_ts2vec/ts2vec_config0/model.pt"

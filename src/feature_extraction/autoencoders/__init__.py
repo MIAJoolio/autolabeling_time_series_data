@@ -1,7 +1,7 @@
 from .base import Basic_AE, Basic_decoder, Basic_encoder
 from .core import Linear_decoder, Linear_encoder, LSTM_decoder, LSTM_encoder
 from .models import Linear_AE,  LSTM_AE
-from .utils import Training_config, AE_trainer, visualize_latent_space
+from .utils import Training_config, AE_trainer, visualize_latent_space,visualize_3_latent_space
 
 __all__ = [
     # Абстрактные блоки
@@ -19,5 +19,6 @@ __all__ = [
     # Функции обучения
     'Training_config', 
     'AE_trainer',
-    'visualize_latent_space'
+    'visualize_latent_space',
+    'visualize_3_latent_space'
 ]

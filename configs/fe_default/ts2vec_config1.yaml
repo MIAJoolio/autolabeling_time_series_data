@@ -1,5 +1,5 @@
 model_init:
-  output_dims: 64
+  output_dims: 128
   hidden_dims: 64
   depth: 10
   lr: 0.001
@@ -14,3 +14,4 @@ encode_params:
   sliding_length: 1
   sliding_padding: 50
   batch_size: 1
+model_save_path: "experiments/FE_with_ts2vec/ts2vec_config1/model.pt"
