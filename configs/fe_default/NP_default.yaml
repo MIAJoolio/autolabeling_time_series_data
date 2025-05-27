@@ -1,0 +1,60 @@
+general:
+  growth: linear
+  yearly_seasonality: true
+  weekly_seasonality: true
+  daily_seasonality: false
+  seasonality_mode: additive
+
+trend:
+  n_changepoints:
+    type: Integer
+    low: 5
+    high: 30
+    step: 5
+  changepoints_range: 0.8
+  trend_reg:
+    type: Float
+    low: 0.01
+    high: 0.1
+    step: 0.02
+  trend_global_local: global
+
+seasonality:
+  season_global_local: global
+  seasonality_reg:
+    type: Float
+    low: 0.0
+    high: 0.2
+    step: 0.05
+
+training:
+  epochs:
+    type: Integer
+    low: 10
+    high: 50
+    step: 10
+  batch_size:
+    type: Integer
+    low: 16
+    high: 32
+    step: 16
+  learning_rate:
+    type: Float
+    low: 0.001
+    high: 0.1
+    step: 0.01
+
+missing_data_preprocessing:
+  impute_missing: true
+  drop_missing: false
+
+regressors:
+  future_regressors_model: linear
+
+ar:
+  n_lags:
+    type: Integer
+    low: 7
+    high: 21
+    step: 7
+  ar_layers: [64, 32]

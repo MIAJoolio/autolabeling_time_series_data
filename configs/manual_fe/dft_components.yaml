@@ -1,0 +1,7 @@
+model: dft_components
+param_grid:
+  n_freqs:
+    type: Integer
+    low: 5
+    high: 50
+    step: 5

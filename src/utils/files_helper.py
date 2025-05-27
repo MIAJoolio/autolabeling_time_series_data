@@ -1,12 +1,18 @@
 from pathlib import Path
 import yaml
 
-__all__ =  ['load_yaml_file', 'load_config_file']
+__all__ =  [
+    'load_yaml_file',
+    'load_config_file',
+    'save_config_file'
+    ]
+
 
 def load_yaml_file(path_to_file:Path):
     with open(path_to_file, 'r') as f:
         config = yaml.safe_load(f)
     return config
+
 
 def load_config_file(config_name: Path) -> dict:
     """
@@ -25,8 +31,11 @@ def load_config_file(config_name: Path) -> dict:
     
     return load_yaml_file(config_path)
 
-def main():
-    return None
 
-if __name__ == '__main__':
-    main()
+def save_config_file(config: dict, config_path: str):
+    """Сохраняет конфигурацию в YAML-файл."""
+    config_path = Path(config_path)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(config_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False, sort_keys=False)

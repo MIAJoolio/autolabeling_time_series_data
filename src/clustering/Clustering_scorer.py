@@ -7,7 +7,7 @@ from skopt import BayesSearchCV
 from skopt.space import Integer, Real, Categorical
 
 from sklearn.model_selection import ParameterGrid
-from sklearn.metrics import silhouette_score, normalized_mutual_info_score, adjusted_rand_score, accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import silhouette_score, normalized_mutual_info_score, adjusted_rand_score, accuracy_score, precision_score, recall_score, f1_score, calinski_harabasz_score, davies_bouldin_score
 from sklearn.base import BaseEstimator
 
 
@@ -65,10 +65,16 @@ class Clustering_scorer:
         if X is not None and len(unique_labels) > 1:
             try:
                 results["silhouette"] = silhouette_score(X, labels)
+                results["calinski_harabasz_score"] = calinski_harabasz_score(X, labels)
+                results["davies_bouldin_score"] = davies_bouldin_score(X, labels)
             except:
                 results["silhouette"] = None
+                results["calinski_harabasz_score"] = None
+                results["davies_bouldin_score"] = None
         else:
             results["silhouette"] = None
+            results["calinski_harabasz_score"] = None
+            results["davies_bouldin_score"] = None
 
         # Clustering metrics
         if y_true is not None:
@@ -120,7 +126,7 @@ class Clustering_scorer:
 
             metrics = cls.evaluate_metrics(labels, X=X, y_true=y_true)
 
-            for metric_name in ["silhouette", "nmi", "ari", "accuracy", "precision", "recall", "f1"]:
+            for metric_name in ["silhouette", "davies_bouldin_score", "calinski_harabasz_score", "nmi", "ari", "accuracy", "precision", "recall", "f1"]:
                 all_results.append({
                     "parameter": str(params),
                     "metric": metric_name,

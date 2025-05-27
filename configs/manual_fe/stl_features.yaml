@@ -1,0 +1,7 @@
+model: stl_features
+param_grid:
+  period:
+    type: Integer
+    low: 1
+    high: 100
+    step: 2

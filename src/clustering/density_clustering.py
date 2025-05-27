@@ -27,6 +27,8 @@ class DBSCAN_model(Base_clustering_model):
         Returns:
             tuple: (метки кластеров, обученная модель)
         """
+        X_train = self.scaler.normalize(X_train)
+
         # Проверяем, заданы ли параметры
         model_params = self.default_params
 
@@ -71,6 +73,8 @@ class BIRCH_model(Base_clustering_model):
         Returns:
             tuple: (метки кластеров, обученная модель)
         """
+        X_train = self.scaler.normalize(X_train)
+
         model_params = self.default_params
 
         self.model = Birch(**model_params)

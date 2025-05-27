@@ -17,6 +17,8 @@ class Sklearn_kmeans_model(Base_clustering_model):
         }
 
     def fit_predict(self, X_train, X_test=None):
+        X_train = self.scaler.normalize(X_train)
+        
         model_params = self.default_params.copy()
         self.model = KMeans(**model_params)
 

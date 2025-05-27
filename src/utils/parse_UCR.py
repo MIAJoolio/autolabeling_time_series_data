@@ -181,18 +181,8 @@ def load_UCR(dataset_name, data_dir="data/UCR_benchmark/datasets", train_ratio=0
     if len(X) != len(y):
         raise ValueError(f"Количество временных рядов ({len(X)}) не совпадает с количеством меток ({len(y)})")
 
-    # Разделение на train и test
-    n_samples = len(X)
-    train_size = int(n_samples * train_ratio)
+    return X, y, metadata
 
-    X_train = X[:train_size]
-    X_test = X[train_size:]
-    y_train = y[:train_size]
-    y_test = y[train_size:]
-
-    print(f"Данные разделены: train_size={train_size}, test_size={n_samples - train_size}")
-
-    return X_train, X_test, y_train, y_test, metadata
 
 def main():
     html_file_path = 'data/UCR_benchmark/table_of_content_raw.txt'

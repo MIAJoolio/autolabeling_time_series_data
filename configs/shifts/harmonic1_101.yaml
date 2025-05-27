@@ -1,0 +1,13 @@
+amplitude_d: 30
+amplitude_u: 50
+amplitude_q: 10
+frequency_d: 5
+frequency_u: 10
+frequency_q: 5
+damping_d: 0.05
+damping_u: 0.2
+damping_q: 10
+t_peak_d: 2
+t_peak_u: 10
+t_peak_q: 8
+length: 101

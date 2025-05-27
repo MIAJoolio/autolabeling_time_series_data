@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 import numpy as np
 
+from sklearn.preprocessing import StandardScaler
+
 # Импорты из ранее созданного ClusteringScorer
 from src.clustering.Clustering_scorer import Clustering_scorer
 
@@ -13,6 +15,10 @@ class Base_clustering_model(ABC):
         self.model = None
         self.is_fitted = False
         self.default_params = {}
+        self.scaler = StandardScaler()
+        
+    def normalize(self, X_raw):
+        return np.array([self.scaler.fit_transform(ts.reshape(-1, 1)).flatten() for ts in X_raw])
 
     def load_data(self, X_train, X_test=None):
         """
@@ -78,6 +84,7 @@ class Base_clustering_model(ABC):
         if config_path is None:
             raise ValueError("Необходимо указать путь к конфигурационному файлу (config_path).")
 
+        X_scaled = X
         # Выбор метода поиска
         if search_method == "grid_search":
             df = Clustering_scorer.grid_search(model=self, X=X, y_true=y_true, config_path=config_path)

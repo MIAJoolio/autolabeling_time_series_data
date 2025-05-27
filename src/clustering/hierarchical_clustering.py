@@ -27,6 +27,8 @@ class AC_model(Base_clustering_model):
         Returns:
             tuple: (метки кластеров, обученная модель)
         """
+        X_train = self.scaler.normalize(X_train)
+
         model_params = self.default_params.copy()
         self.model = AgglomerativeClustering(**model_params)
 

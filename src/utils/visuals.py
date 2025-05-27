@@ -10,7 +10,7 @@ __all__ = [
 
 def plot_series(series_list, labels=None, plot_title="Заголовок", 
                 ylabel="Значение", xlabel="Время", figsize=(12, 6), grid=True,
-                save_path=None):
+                save_path=None, show_legend=True):
     """
     Визуализация одного или нескольких временных рядов на одном графике.
     
@@ -33,6 +33,7 @@ def plot_series(series_list, labels=None, plot_title="Заголовок",
     save_path : str, optional
         Путь для сохранения графика. Если None, график только отображается
     """
+    
     # Преобразуем одиночный ряд в список
     if not isinstance(series_list, (list, tuple)):
         series_list = [series_list]
@@ -50,7 +51,8 @@ def plot_series(series_list, labels=None, plot_title="Заголовок",
     plt.title(plot_title)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.legend()
+    if show_legend:
+        plt.legend()
     plt.grid(grid)
     plt.tight_layout()
     if save_path is not None:
