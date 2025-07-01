@@ -9,10 +9,10 @@ param_grid:
   level:
     type: Integer
     low: 1
-    high: 10
+    high: 5
     step: 1
   n_coeffs:
     type: Integer
     low: 5
-    high: 50
+    high: 20
     step: 5

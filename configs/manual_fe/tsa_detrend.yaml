@@ -1,7 +1,0 @@
-model: tsa_detrend
-param_grid: 
-  order: 
-    type: Integer
-    low: 0
-    high: 2
-    step: 1

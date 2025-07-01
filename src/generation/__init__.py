@@ -10,7 +10,7 @@ __all__ = [
     "exponential_trend",
     "sin_wave",
     "sawtooth_wave",
-    "harmonic_oscillator",
+    "harmonic_shift",
     "random_walk",
     'sawtooth_shift',
     # ts_noise_generators

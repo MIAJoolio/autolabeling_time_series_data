@@ -1,0 +1,7 @@
+model: paa_features
+param_grid:
+  n_segments:
+    type: Integer
+    low: 2
+    high: 50
+    step: 1

@@ -3,7 +3,7 @@ param_grid:
   n_clusters:
     type: Integer
     low: 2
-    high: 6
+    high: 20
   linkage:
     type: Categorical
     values: ["complete", "average", "single"] # ward work only with euclidean

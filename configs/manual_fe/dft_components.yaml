@@ -2,6 +2,11 @@ model: dft_components
 param_grid:
   n_freqs:
     type: Integer
-    low: 5
+    low: 2
     high: 50
-    step: 5
+    step: 2
+  fs:
+    type: Integer
+    low: 100
+    high: 1000
+    step: 100

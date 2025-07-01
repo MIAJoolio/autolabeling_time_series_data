@@ -1,0 +1,18 @@
+model: dwt_signal
+param_grid:
+  wavelet:
+    type: Categorical
+    values: ["db1", "db2", "db4", "sym2", "coif1"]
+  mode:
+    type: Categorical
+    values: ["symmetric", "constant", "reflect", "periodic"]
+  level:
+    type: Integer
+    low: 1
+    high: 3
+    step: 1
+  n_coeffs:
+    type: Integer
+    low: 5
+    high: 20
+    step: 5

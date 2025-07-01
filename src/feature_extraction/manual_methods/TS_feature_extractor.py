@@ -1,6 +1,7 @@
 from typing import Callable, Union, Dict, Optional, List
 import inspect
 from tqdm import tqdm
+from itertools import product
 
 import numpy as np
 from sklearn.model_selection import ParameterGrid
@@ -8,230 +9,199 @@ from sklearn.model_selection import ParameterGrid
 from src.utils.files_helper import load_config_file, save_config_file
 
 
-class TS_feature_extractor:
-    """
-    Класс для извлечения признаков из временного ряда с помощью заданной функции.
-    
-    Параметры:
-        feature_func (Callable): Функция, которая принимает временной ряд и возвращает вектор признаков.
-        config (Union[dict, str], optional): Конфигурация параметров функции. По умолчанию используется сигнатура функции.
-    """
-
-    def __init__(self, feature_func: Callable, config: Union[dict, str] = None):
-        self.feature_func = feature_func
-        if isinstance(config, dict):
-            self.config = config.copy()
-        elif isinstance(config, str):
-            self.config = load_config_file(config)
-        else:
-            self.config = {}
-
-    def generate_params(self, round_val: int = 3, all_values: bool = False,
-                        random_state: Optional[int] = None) -> Dict[str, Union[float, np.ndarray]]:
-        """
-        Генерирует параметры для функции извлечения признаков на основе сигнатуры или конфига.
-
-        Args:
-            round_val (int): Число знаков после запятой для численных параметров.
-            all_values (bool): Если True, возвращаются все значения по каждому параметру.
-            random_state (Optional[int]): Фиксирует случайность выбора значений.
-
-        Returns:
-            Dict[str, Union[float, np.ndarray]]: Сгенерированные параметры.
-        """
-        if random_state is not None:
-            np.random.seed(random_state)
-        elif self.config.get('random_state', None) is not None:
-            np.random.seed(self.config.get('random_state'))
-
-        sig = inspect.signature(self.feature_func)
-        params = {}
-
-        for name, param in sig.parameters.items():
-            if name == "series":
-                continue  # Пропускаем аргумент time_series — это входной ряд
-
-            d = self.config.get(f"{name}_d", param.default)
-            u = self.config.get(f"{name}_u", param.default)
-            q = self.config.get(f"{name}_q", 1)
-
-            self.config[f"{name}_d"] = d
-            self.config[f"{name}_u"] = u
-            self.config[f"{name}_q"] = q
-
-            value = self.config[f"{name}_d"] if all_values else np.random.choice(self.config[f"{name}_d"])
-            params[name] = value
-
-        return params
-
-    def extract(self, time_series: np.ndarray, **kwargs) -> Union[np.ndarray, List[np.ndarray]]:
-        """
-        Извлекает признаки из временного ряда.
-
-        Args:
-            time_series (np.ndarray): Входной временной ряд.
-            **kwargs: Дополнительные параметры для feature_func или generate_params.
-
-        Returns:
-            np.ndarray: Вектор признаков (или список, если all_values=True).
-        """
-        if kwargs.get("all_values"):
-            params_grid = self.generate_params(**kwargs)
-            from itertools import product
-
-            # Генерируем все комбинации параметров
-            keys = list(params_grid.keys())
-            values = list(params_grid.values())
-            combinations = [dict(zip(keys, combo)) for combo in product(*values)]
-
-            return [self.feature_func(time_series, **params) for params in combinations]
-
-        params = self.generate_params(**kwargs)
-        return self.feature_func(time_series, **params)
-
-    def save_config(self, config_path: str = 'configs/config_file.yaml'):
-        """
-        Сохраняет текущий конфиг в указанный путь.
-        """
-        split_name = config_path.split('.')
-        name = '_'.join([split_name[0], str(self.config.get('length', 'default'))])
-        fmt = split_name[-1]
-        full_name = f"{name}.{fmt}"
-        save_config_file(self.config, full_name)
-        return full_name
-    
-
 class Feature_extraction_method:
-    def __init__(self, method_func, config_path=None):
+    def __init__(self, method_func, config: dict):
         self.method_func = method_func
-        self.config_path = config_path
-        self.param_grid = None
-        if config_path:
-            self.load_config(config_path)
 
-    def load_config(self, config_path):
-        """Загружает конфигурационный файл и формирует сетку параметров"""
-        config = load_config_file(config_path)
-            
-        param_grid = {}
-        for key, val in config.get('param_grid', {}).items():
-            if val['type'] == 'Integer' or val['type'] == 'Real':
-                low, high = val.get('low'), val.get('high')
-                step = val.get('step', 1)
-                param_grid[key] = list(range(low, high + 1, step))
-            elif val['type'] == 'Categorical':
-                param_grid[key] = val.get('values', [])
-        self.param_grid = param_grid
-
-    def infer(self, series, params=None):
+    def infer(self, series):
         """
-        Применяет функцию извлечения признаков либо с конкретными параметрами, 
-        либо с гридом, если параметры не заданы.
+        Применяет метод к полному временному ряду.
+        Если params не задан, применяет все комбинации из self.param_grid.
         """
-        if params is not None:
-            return self.method_func(series, **params)
         
-        if self.param_grid is None:
-            raise ValueError("Не загружена сетка параметров.")
-
-        results = []
+        results = None
         for param_set in ParameterGrid(self.param_grid):
             try:
                 features = self.method_func(series, **param_set)
-                results.append((param_set, features))
+                results = (param_set, features)
             except Exception as e:
                 print(f"Ошибка при использовании {param_set}: {e}")
         return results
 
+    def infer_segmented(self, series, n_segments=3, params=None):
+        """
+            !!! лучше сразу данные делить на сегменты 
+        """
+        if n_segments <= 0 or not isinstance(n_segments, int):
+            raise ValueError("n_segments должно быть целым положительным числом")
+
+        length = len(series)
+        segment_size = length // n_segments
+        remainder = length % n_segments
+
+        all_features = []
+
+        for i in range(n_segments):
+            start = i * segment_size
+            end = start + segment_size + (1 if i < remainder else 0)
+            segment = series[start:end]
+
+            # Применяем метод к сегменту
+            if params is not None:
+                features = self.method_func(segment, **params)
+            else:
+                if self.param_grid is None:
+                    raise ValueError("Не загружена сетка параметров.")
+                # Берём первый набор параметров из grid (можно усреднить/выбрать лучший)
+                features = self.method_func(segment, **self.param_grid[0])
+
+            all_features.append(features)
+
+        # Объединяем все признаки в один вектор
+        return np.concatenate(all_features)
+
 
 class Feature_extractor_pipeline:
     def __init__(self, methods):
-        self.methods = methods  # Список Feature_extraction_method объектов
-
-    def parall_extract(self, series, verbose=False):
         """
-        Применяет все методы к одному временному ряду.
-        Возвращает:
-        - features_list: список массивов признаков (по одному на метод)
-        - params_log: информация о применённых параметрах
+        Args:
+            methods: List of Feature_extraction_method objects
         """
-        features_list = []
-        params_log = []
+        self.methods = methods
 
-        for method in self.methods:
-            name = method.method_func.__name__
-            if verbose:
-                print(f"Обработка методом: {name}")
-            try:
-                result = method.infer(series)  # может быть list[(params, feats)] или feats
-                if isinstance(result, list):  # если grid_search вернул несколько вариантов
-                    method_results = []
-                    method_params = []
-                    for param_set, feats in result:
-                        method_results.append(feats)
-                        method_params.append({
-                            'method': name,
-                            'params': param_set
-                        })
-                    features_list.append(method_results)
-                    params_log.append(method_params)
-                else:  # если один результат
-                    features_list.append([result])
-                    params_log.append([{
-                        'method': name,
-                        'params': {}
-                    }])
-            except Exception as e:
-                if verbose:
-                    print(f"Ошибка в методе {name}: {e}")
-                continue
+#     def extract_single_series(self, series):
+#         """
+#         Извлекает все возможные признаки из одного ряда по всем методам и параметрам.
 
-        return features_list, params_log
+#         Returns:
+#             features_by_config: list of dicts
+#                 [
+#                     {
+#                         "features": np.array,
+#                         "params": {"method1": params_used, ...}
+#                     },
+#                     ...
+#                 ]
+#         """
+#         features_by_config = []
 
-    def batch_extract(self, dataset, mode='concat', verbose=False):
-        if mode not in ['concat', 'grid']:
-            raise ValueError("mode должен быть 'concat' или 'grid'")
+#         # Получаем все возможные комбинации параметров
+#         method_param_options = []
+#         for method in self.methods:
+#             if method.param_grid is None:
+#                 method_param_options.append([{}])  # без параметров
+#             else:
+#                 method_param_options.append(ParameterGrid(method.param_grid))
 
-        all_features_by_row = []
-        all_features_by_param = []
-        all_params = []
+#         # Проходим по всем комбинациям параметров
+#         for param_combination in product(*method_param_options):
+#             feature_vector = []
+#             param_log = {}
 
-        for i, series in enumerate(dataset):
-            if verbose:
-                print(f"Ряд {i + 1}/{len(dataset)}")
-            features_list, feature_params = self.parall_extract(series, verbose=verbose)
+#             for method_idx, method in enumerate(self.methods):
+#                 current_params = param_combination[method_idx]
+#                 try:
+#                     # Применяем метод с текущими параметрами
+#                     features = method.method_func(series, **current_params)
+#                     feature_vector.append(features)
+#                     param_log[method.method_func.__name__] = current_params
+#                 except Exception as e:
+#                     feature_vector.append(np.zeros(1))  # Заглушка при ошибке
+#                     param_log[method.method_func.__name__] = {'error': str(e)}
 
-            # Сохраняем параметры
-            all_params.append(feature_params)
+#             # Сохраняем результат
+#             features_by_config.append({
+#                 'features': np.concatenate(feature_vector),
+#                 'params': param_log
+#             })
 
-            # Для режима concat: объединяем все признаки по всем методам и параметрам
-            flat_features = []
-            for method_idx in range(len(features_list)):
-                for param_variant in features_list[method_idx]:
-                    flat_features.append(param_variant.ravel())
-            all_features_by_row.append(np.concatenate(flat_features))
+#         return features_by_config
 
-            # Для grid: сохраняем как есть
-            all_features_by_param.append(features_list)
+#     def extract_single_series_segmented(self, series, n_segments=3):
+#         """
+#         Извлекает признаки из временного ряда, разбитого на сегменты.
+#         Для каждого метода и параметра: применяет infer_segmented, объединяет признаки.
 
-        if mode == 'concat':
-            return np.array(all_features_by_row, dtype=np.float32), all_params
+#         Returns:
+#             features_by_config: list of dicts
+#         """
+#         features_by_config = []
 
-        elif mode == 'grid':
-            # Определяем максимальное число параметров среди всех методов
-            max_n_params = max(len(method) for method in all_features_by_param[0])
+#         # Получаем все возможные комбинации параметров
+#         method_param_options = []
+#         for method in self.methods:
+#             if method.param_grid is None:
+#                 method_param_options.append([{}])
+#             else:
+#                 method_param_options.append(ParameterGrid(method.param_grid))
 
-            # Группируем по каждому набору параметров
-            X_by_param = [[] for _ in range(max_n_params)]
+#         # Проходим по всем комбинациям параметров
+#         for param_combination in product(*method_param_options):
+#             feature_vector = []
+#             param_log = {}
 
-            for sample_idx in range(len(dataset)):
-                for param_idx in range(max_n_params):
-                    combined = []
-                    for method_idx in range(len(self.methods)):
-                        # Используем последний доступный параметр, если меньше max_n_params
-                        n_method_params = len(all_features_by_param[sample_idx][method_idx])
-                        use_idx = min(param_idx, n_method_params - 1)
-                        combined.append(all_features_by_param[sample_idx][method_idx][use_idx])
-                    X_by_param[param_idx].append(np.concatenate(combined))
+#             for method_idx, method in enumerate(self.methods):
+#                 current_params = param_combination[method_idx]
+#                 try:
+#                     # Применяем метод с сегментацией
+#                     features = method.infer_segmented(series, n_segments=n_segments, params=current_params)
+#                     feature_vector.append(features)
+#                     param_log[method.method_func.__name__] = current_params
+#                 except Exception as e:
+#                     feature_vector.append(np.zeros(1))
+#                     param_log[method.method_func.__name__] = {'error': str(e)}
 
-            return np.array(X_by_param, dtype=np.float32), all_params
+#             # Сохраняем результат
+#             features_by_config.append({
+#                 'features': np.concatenate(feature_vector),
+#                 'params': param_log
+#             })
+
+#         return features_by_config
+
+#     def batch_extract(self, dataset, use_segmentation=False, n_segments=3, verbose=False):
+#         """
+#         Обрабатывает весь датасет и возвращает список tuple:
+#             [
+#                 (X: np.ndarray, params: dict),
+#                 ...
+#             ]
+
+#         Где:
+#             X.shape == (n_samples, n_features)
+#             params — словарь {method_name: params_used}
+#         """
+#         n_samples = len(dataset)
+
+#         # Первый ряд обрабатываем для определения числа конфигураций
+#         if use_segmentation:
+#             sample_results = self.extract_single_series_segmented(dataset[0], n_segments=n_segments)
+#         else:
+#             sample_results = self.extract_single_series(dataset[0])
+
+#         n_configs = len(sample_results)
+
+#         if verbose:
+#             print(f"Обнаружено {n_configs} уникальных комбинаций параметров")
+
+#         # Подготавливаем структуры под все комбинации
+#         all_X = [[] for _ in range(n_configs)]
+#         all_params = [res['params'] for res in sample_results]
+
+#         # Обработка всего датасета
+#         for i, series in enumerate(dataset):
+#             if verbose:
+#                 print(f"Ряд {i + 1}/{n_samples}")
+#             if use_segmentation:
+#                 results = self.extract_single_series_segmented(series, n_segments=n_segments)
+#             else:
+#                 results = self.extract_single_series(series)
+
+#             for config_idx, result in enumerate(results):
+#                 all_X[config_idx].append(result['features'])
+
+#         # Преобразуем в массивы
+#         all_X_np = [np.array(X_list, dtype=np.float32) for X_list in all_X]
+
+#         # Возвращаем список tuple: (X_array, params)
+#         return [(all_X_np[i], all_params[i]) for i in range(n_configs)]

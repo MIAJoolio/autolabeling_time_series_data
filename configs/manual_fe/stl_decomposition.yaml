@@ -2,6 +2,6 @@ model: stl_decomposition
 param_grid:
   period:
     type: Integer
-    low: 1
+    low: 2
     high: 100
     step: 2

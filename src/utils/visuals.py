@@ -8,8 +8,8 @@ __all__ = [
     'plot_series_grid'
 ]
 
-def plot_series(series_list, labels=None, plot_title="Заголовок", 
-                ylabel="Значение", xlabel="Время", figsize=(12, 6), grid=True,
+def plot_series(series_list, labels=None, colors=None, plot_title="Title", 
+                ylabel="Value", xlabel="Time", figsize=(12, 6), grid=True,
                 save_path=None, show_legend=True):
     """
     Визуализация одного или нескольких временных рядов на одном графике.
@@ -20,6 +20,8 @@ def plot_series(series_list, labels=None, plot_title="Заголовок",
         Один временной ряд или список временных рядов
     labels : str или list, optional
         Одна метка или список меток для каждого ряда
+    colors : str или list, optional
+        Цвет или список цветов для каждого ряда (в формате 'red', '#FF0000', 'r' и т.п.)
     plot_title : str, optional
         Заголовок графика
     ylabel : str, optional
@@ -37,16 +39,29 @@ def plot_series(series_list, labels=None, plot_title="Заголовок",
     # Преобразуем одиночный ряд в список
     if not isinstance(series_list, (list, tuple)):
         series_list = [series_list]
-        labels = [labels] if labels else ["Временной ряд"]
+        if labels is not None:
+            labels = [labels]
+        if colors is not None:
+            colors = [colors]
+
+    # Автоматическое назначение меток, если их нет
+    if labels is None:
+        labels = [f"Row {i+1}" for i in range(len(series_list))]
     
     # Проверка соответствия количества меток количеству рядов
-    if labels and len(labels) != len(series_list):
+    if len(labels) != len(series_list):
         raise ValueError("Количество меток должно соответствовать количеству рядов")
+    
+    # Обработка цветов
+    if colors is not None and len(colors) != len(series_list):
+        raise ValueError("Количество цветов должно соответствовать количеству рядов")
 
     plt.figure(figsize=figsize)
     for i, series in enumerate(series_list):
-        label = labels[i] if labels else f"Ряд {i+1}"
-        plt.plot(series, label=label)
+        kwargs = {}
+        if colors:
+            kwargs['color'] = colors[i]
+        plt.plot(series, label=labels[i], **kwargs)
     
     plt.title(plot_title)
     plt.xlabel(xlabel)
@@ -55,11 +70,10 @@ def plot_series(series_list, labels=None, plot_title="Заголовок",
         plt.legend()
     plt.grid(grid)
     plt.tight_layout()
+    
     if save_path is not None:
-        # Создаем директорию для сохранения результатов, если она не существует
         base_dir = Path(save_path).parent
         base_dir.mkdir(parents=True, exist_ok=True)
-
         plt.savefig(save_path)
     else:
         plt.show()
@@ -67,7 +81,7 @@ def plot_series(series_list, labels=None, plot_title="Заголовок",
     plt.close()
 
 
-def plot_series_grid(series_list, labels=None, x_series=None, plot_title="Заголовок",ylabel="Значение", xlabel="Время", figsize=(12, 6), grid=True,layout:Literal['vertical','horizontal','grid']='vertical', nrows=None, ncols=None, save_path=None):
+def plot_series_grid(series_list, labels=None, x_series=None, plot_title="Title",ylabel="Value", xlabel="Time", figsize=(12, 6), grid=True,layout:Literal['vertical','horizontal','grid']='vertical', nrows=None, ncols=None, save_path=None):
     """
     Визуализация временных рядов в виде сетки графиков.
     
@@ -125,7 +139,7 @@ def plot_series_grid(series_list, labels=None, x_series=None, plot_title="Заг
     
     for idx, (series, ax) in enumerate(zip(series_list, axes.flat)):
         ax.plot(series)
-        ax.set_title(labels[idx] if labels else f"Ряд {idx+1}")
+        ax.set_title(labels[idx] if labels else f"Row {idx+1}")
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         

@@ -1,0 +1,4 @@
+alpha_d: 0.02
+alpha_u: 0.04
+alpha_q: 10
+length: 101

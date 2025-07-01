@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head><title>Visualization</title></head>
+<body>
+<h1>Clustering Results</h1>
+{% if images %}
+<ul>
+    {% for image in images %}
+    <li><img src="/static/images/{{ image }}" width="600"></li>
+    {% endfor %}
+</ul>
+{% else %}
+<p>No results yet.</p>
+{% endif %}
+<a href="/">Back to upload</a>
+</body>
+</html>

@@ -1,4 +1,3 @@
-
 import numpy as np
 
 # trend + autocorrelation, statistics
@@ -27,49 +26,42 @@ from scipy.signal import argrelmax
 __all__ = [
     # Детрендирование
     'tsa_detrend',
-    
-    # Автокорреляция
-    'tsa_acf',
-    
     # Статистические признаки
     'statistical_features',
-    
-    # PAA (Piecewise Aggregate Approximation)
+    # PAA
     'paa_features',
-    
+    # Автокорреляция
+    'tsa_acf',
     # Анализ пиков
     'signal_peaks_features',
-    
-    # STFT (Short-Time Fourier Transform)
+    # STFT
     'stft_features',
-    
-    # DFT (Discrete Fourier Transform)
+    # DFT
     'dft_components',
     'dft_signal',
     'dft_approximation',
-    
-    # DWT (Discrete Wavelet Transform)
+    # DWT
     'dwt_features',
     'dwt_signal',
-
-    'stl_decomposition',
+    # STL decomposition
+    'stl_trend',
+    'stl_seasonal',
+    'stl_noise',
     'stl_features',
+    'no_fe'
 ]
 
+def no_fe(series):
+    return series
 
+
+# 17.06 checked
 def tsa_detrend(series, order=0):
-    return detrend(series)
+    return detrend(series, order=order)
 
 
 def tsa_acf(series, n_lags=10, thresh=0.5):
-    acf_values = acf(series, nlags=n_lags+1)
-    # significant_lags = np.where(acf_values > )[0]
-    # if len(significant_lags) > 1:
-    #     period = significant_lags[1]  # Первый значимый лаг (lag=0 пропускаем)
-    #     return period
-    # else:
-    #     return None
-    
+    acf_values = acf(series, nlags=n_lags+1)    
     return acf_values[1:]  
 
     
@@ -168,7 +160,7 @@ def stft_features(series, noverlap=None, nperseg:int=None):
     return np.abs(Zxx).flatten()
 
 
-def dft_components(series, n_freqs=10):
+def dft_components(series, n_freqs=10, fs=500):
     """
     Функция:
     * Применяет быстрое преобразование Фурье (FFT) к временному ряду.
@@ -182,7 +174,6 @@ def dft_components(series, n_freqs=10):
     phases =  np.angle(dft_values)
     
     n = len(series)
-    fs = 500
     freq = np.fft.fftfreq(n, d=1/fs) 
 
     # Только положительные частоты, т.к. в отрицательных нет информации
@@ -195,7 +186,7 @@ def dft_components(series, n_freqs=10):
     return np.array([[positive_magnitude[j], phases[j]] for j in significant]).flatten()
 
 
-def dft_signal(series, n_freqs=10):
+def dft_signal(series, n_freqs=10, fs=500):
     """
     Функция:
     * Применяет быстрое преобразование Фурье (FFT) к временному ряду.
@@ -219,7 +210,6 @@ def dft_signal(series, n_freqs=10):
     phases = np.angle(dft_values)
     
     n = len(series)
-    fs = 500  # Частота дискретизации (пример)
     freq = np.fft.fftfreq(n, d=1/fs)
 
     # Только положительные частоты
@@ -234,7 +224,7 @@ def dft_signal(series, n_freqs=10):
     restored_spectrum = np.zeros(n, dtype=complex)
     for idx in significant_indices:
         restored_spectrum[idx] = positive_magnitude[idx] * np.exp(1j * positive_phases[idx])
-        restored_spectrum[-idx] = positive_magnitude[idx] * np.exp(-1j * positive_phases[idx])  # Симметрия
+        restored_spectrum[-idx] = positive_magnitude[idx] * np.exp(-1j * positive_phases[idx]) 
 
     # Обратное преобразование Фурье
     restored_signal = ifft(restored_spectrum).real
@@ -242,7 +232,7 @@ def dft_signal(series, n_freqs=10):
     return restored_signal
 
 
-def dft_approximation(series, n_freqs=10):
+def dft_approximation(series, n_freqs=10, fs=500):
     """
     Функция:
     * Применяет быстрое преобразование Фурье (FFT) к временному ряду.
@@ -266,7 +256,6 @@ def dft_approximation(series, n_freqs=10):
     phases = np.angle(dft_values)
     
     n = len(series)
-    fs = 500  # Частота дискретизации (пример)
     freq = np.fft.fftfreq(n, d=1/fs)
 
     # Только положительные частоты
@@ -371,7 +360,7 @@ def dwt_signal(series, wavelet='db4', mode='symmetric', level=4, n_coeffs=15):
     return restored_signal
 
 
-def stl_decomposition(series, period=None):
+def stl_trend(series, period=None):
     """
     Выполняет STL-декомпозицию временного ряда.
     
@@ -395,7 +384,59 @@ def stl_decomposition(series, period=None):
     stl = STL(series, period=period)
     result = stl.fit()
     
-    return result.trend, result.seasonal, result.resid
+    return result.trend
+
+def stl_seasonal(series, period=None):
+    """
+    Выполняет STL-декомпозицию временного ряда.
+    
+    Parameters:
+    - series: np.array, одномерный временной ряд.
+    - period: int, период сезонности (если None, автоматически определяется через ACF).
+    
+    Returns:
+    - trend: Трендовая компонента.
+    - seasonal: Сезонная компонента.
+    - resid: Остаточная компонента.
+    """
+    if period == 1:
+        acf_values = acf(series, nlags=40)
+        peaks = argrelmax(acf_values)[0]
+        if len(peaks) > 0:
+            period = peaks[0]
+        else:
+            period = 10  # Значение по умолчанию
+    
+    stl = STL(series, period=period)
+    result = stl.fit()
+    
+    return result.seasonal
+
+def stl_noise(series, period=None):
+    """
+    Выполняет STL-декомпозицию временного ряда.
+    
+    Parameters:
+    - series: np.array, одномерный временной ряд.
+    - period: int, период сезонности (если None, автоматически определяется через ACF).
+    
+    Returns:
+    - trend: Трендовая компонента.
+    - seasonal: Сезонная компонента.
+    - resid: Остаточная компонента.
+    """
+    if period == 1:
+        acf_values = acf(series, nlags=40)
+        peaks = argrelmax(acf_values)[0]
+        if len(peaks) > 0:
+            period = peaks[0]
+        else:
+            period = 10  # Значение по умолчанию
+    
+    stl = STL(series, period=period)
+    result = stl.fit()
+    
+    return result.resid
 
 
 def stl_features(series, period=None):

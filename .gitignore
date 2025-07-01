@@ -2,6 +2,8 @@
 .basic_312/
 .s4_venv/
 .logs/
+.backend/
+.artifacts/
 
 legacy
 core/__pycache__/
@@ -20,6 +22,8 @@ ts2vec/
 n_beats/
 neural_prophet/
 experiments/
+stored_data/
+results/
 
 *.xlsx
 *.csv

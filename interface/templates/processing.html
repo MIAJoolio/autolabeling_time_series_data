@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head><title>Processing</title></head>
+<body>
+<h1>Select preprocessing and clustering method</h1>
+<form action="/run-clustering" method="post">
+    <label>Feature Extraction:</label>
+    <select name="fe_method">
+        <option value="detrend">Detrend</option>
+        <option value="dft">DFT</option>
+        <option value="stl">STL</option>
+    </select><br>
+
+    <label>Model:</label>
+    <select name="model_name">
+        <option value="kmeans">KMeans</option>
+        <option value="agglomerative">Agglomerative</option>
+        <option value="dbscan">DBSCAN</option>
+    </select><br>
+
+    <!-- DFT -->
+    <label>DFT fs:</label><input type="number" name="fs" value="500"><br>
+    <label>DFT n_freqs:</label><input type="number" name="n_freqs" value="10"><br>
+
+    <!-- STL -->
+    <label>STL period:</label><input type="number" name="period" value="7"><br>
+
+    <!-- Detrend -->
+    <label>Detrend order:</label><input type="number" name="order" value="1"><br>
+
+    <!-- KMeans -->
+    <label>KMeans n_clusters:</label><input type="number" name="n_clusters" value="2"><br>
+
+    <!-- DBSCAN -->
+    <label>DBSCAN eps:</label><input type="number" name="eps" value="0.5"><br>
+    <label>DBSCAN min_samples:</label><input type="number" name="min_samples" value="5"><br>
+
+    <!-- Agglomerative -->
+    <label>Aggl. threshold:</label><input type="number" name="distance_threshold" value="0.5"><br>
+    <label>Aggl. metric:</label>
+    <select name="metric">
+        <option value="euclidean">Euclidean</option>
+        <option value="cosine">Cosine</option>
+    </select><br>
+
+    <button type="submit">Run Clustering</button>
+</form>
+</body>
+</html>

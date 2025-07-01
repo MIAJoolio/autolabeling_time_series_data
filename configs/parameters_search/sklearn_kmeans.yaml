@@ -3,7 +3,7 @@ param_grid:
   n_clusters:
     type: Integer
     low: 2
-    high: 6
+    high: 20
     step: 1
   init:
     type: Categorical
